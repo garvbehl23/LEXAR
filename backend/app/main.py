@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from backend.app.api.routes import health
+from backend.app.api.routes import health, upload
 
 app = FastAPI(
     title="LegalRAG",
@@ -8,3 +8,4 @@ app = FastAPI(
 )
 
 app.include_router(health.router, prefix="/health", tags=["Health"])
+app.include_router(upload.router, prefix="/upload", tags=["Upload"])
