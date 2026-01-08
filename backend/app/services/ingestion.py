@@ -1,6 +1,6 @@
 import pdfplumber
 import os
-from backend.app.utils.chunker import legal_aware_chunk
+from backend.app.services.chunking.ipc_chunker import chunk_ipc_by_section
 
 def extract_text_from_pdf(pdf_path: str) -> str:
     if not os.path.exists(pdf_path):
@@ -18,4 +18,4 @@ def extract_text_from_pdf(pdf_path: str) -> str:
 
 
 def chunk_text(text: str):
-    return legal_aware_chunk(text)
+    return chunk_ipc_by_section(text)
