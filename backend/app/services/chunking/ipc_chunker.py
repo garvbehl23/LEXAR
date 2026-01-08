@@ -35,3 +35,8 @@ def chunk_ipc_by_section(text: str):
         })
 
     return chunks
+def chunk_ipc_text(text: str):
+    """
+    Stable IPC chunking entrypoint for ingestion pipeline.
+    """
+    return chunk_ipc_by_section(text)
