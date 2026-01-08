@@ -1,0 +1,34 @@
+[
+  {
+    "query": "What is the punishment for murder under IPC?",
+    "relevant_sections": ["302"]
+  },
+  {
+    "query": "What is the punishment for culpable homicide not amounting to murder?",
+    "relevant_sections": ["304"]
+  },
+  {
+    "query": "What is the definition of murder under IPC?",
+    "relevant_sections": ["300"]
+  },
+  {
+    "query": "What is the punishment for attempt to murder?",
+    "relevant_sections": ["307"]
+  },
+  {
+    "query": "What is the punishment for dacoity with murder?",
+    "relevant_sections": ["396"]
+  },
+  {
+    "query": "What is the punishment for causing death by negligence?",
+    "relevant_sections": ["304A"]
+  },
+  {
+    "query": "What is the definition of culpable homicide?",
+    "relevant_sections": ["299"]
+  },
+  {
+    "query": "What is the punishment for voluntarily causing grievous hurt?",
+    "relevant_sections": ["325"]
+  }
+]
