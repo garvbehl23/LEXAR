@@ -1,29 +1,16 @@
-# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-
-# Virtual environments
 venv/
 .env
-
-# OS
 .DS_Store
-
-# Data (keep structure, not contents)
 data/raw_docs/*
 data/processed_docs/*
 data/mini_legal_corpus/*
-
-# Allow empty dirs
 !data/raw_docs/.gitkeep
 !data/processed_docs/.gitkeep
 !data/mini_legal_corpus/.gitkeep
-
-# Evaluation outputs
 evaluation/*.log
-
-# IDE
 .vscode/
 .idea/
