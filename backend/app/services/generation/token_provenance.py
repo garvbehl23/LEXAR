@@ -241,8 +241,13 @@ class TokenProvenanceTracker:
         
         self.generated_tokens.append(token)
     
-    def compute_provenances(self) -> List[TokenProvenance]:
+    def compute_provenances(self, suppress_mismatch_warnings: bool = False) -> List[TokenProvenance]:
         """Compute provenance for all recorded tokens.
+        
+        Args:
+            suppress_mismatch_warnings: If True, demote token-level mismatch warnings to DEBUG.
+                This should be True when span-level provenance succeeds, as token-level mismatches
+                are expected due to subword tokenization (e.g., end tokens without attention).
         
         Returns:
             List of TokenProvenance objects
@@ -255,29 +260,14 @@ class TokenProvenanceTracker:
             return []
         
         if not self.layer_attention_weights:
-            logger.warning("No attention weights recorded for provenance computation")
-            # Fallback: assign all tokens to the first chunk in the mapping to preserve determinism
-            chunk_order = []
-            for cid in self.token_ids_to_chunk_ids.values():
-                if cid not in chunk_order:
-                    chunk_order.append(cid)
-            fallback_chunk = chunk_order[0] if chunk_order else None
-            if fallback_chunk:
-                self.token_provenances = [
-                    TokenProvenance(
-                        token=tok,
-                        position=idx,
-                        supporting_chunk=fallback_chunk,
-                        attention_mass=1.0,
-                        confidence=1.0,
-                        secondary_chunks=[],
-                        layer_distributions=None,
-                    )
-                    for idx, tok in enumerate(self.generated_tokens)
-                ]
-                self.stats.calculate(self.token_provenances)
-                return self.token_provenances
-            return []
+            # CRITICAL ERROR: This should never happen in LEXAR
+            # If provenance is requested, attention weights MUST be captured
+            raise RuntimeError(
+                f"No attention weights recorded for provenance computation. "
+                f"Generated {len(self.generated_tokens)} tokens but captured 0 layers. "
+                f"This violates LEXAR's explainability guarantee. "
+                f"Ensure attention capture hooks are registered before generation."
+            )
         
         self.token_provenances = []
         
@@ -289,10 +279,16 @@ class TokenProvenanceTracker:
         token_count = len(self.generated_tokens)
         
         if num_generated_tokens != token_count:
-            logger.warning(
-                f"Mismatch: {num_generated_tokens} attention positions "
-                f"but {token_count} tokens"
-            )
+            if suppress_mismatch_warnings:
+                logger.debug(
+                    f"Token-level mismatch: {num_generated_tokens} attention positions "
+                    f"but {token_count} tokens (expected with subword tokenization)"
+                )
+            else:
+                logger.warning(
+                    f"Mismatch: {num_generated_tokens} attention positions "
+                    f"but {token_count} tokens"
+                )
             seq_len = min(num_generated_tokens, token_count)
             attention_weights = attention_weights[:seq_len, :]
             self.generated_tokens = self.generated_tokens[:seq_len]
@@ -465,10 +461,15 @@ class TokenProvenanceTracker:
         
         return distributions if distributions else None
     
-    def get_provenances(self) -> List[TokenProvenance]:
-        """Get computed provenances (compute if not already done)."""
+    def get_provenances(self, suppress_mismatch_warnings: bool = False) -> List[TokenProvenance]:
+        """Get computed provenances (compute if not already done).
+        
+        Args:
+            suppress_mismatch_warnings: If True, demote token-level mismatch warnings to DEBUG.
+                Should be True when span-level provenance will be used as the source of truth.
+        """
         if not self.token_provenances and self.generated_tokens:
-            self.compute_provenances()
+            self.compute_provenances(suppress_mismatch_warnings=suppress_mismatch_warnings)
         return self.token_provenances
     
     def get_stats(self) -> ProvenanceStats:
