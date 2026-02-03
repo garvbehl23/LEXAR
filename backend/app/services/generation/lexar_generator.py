@@ -83,39 +83,94 @@ class LexarGenerator:
         # Attention capture state
         self._attention_hooks = []
         self._captured_cross_attn = []
+        self._hooks_registered_count = 0
+        self._hooks_fired_count = 0
 
     def _clear_attention_capture(self):
         self._captured_cross_attn = []
+        self._hooks_fired_count = 0
 
     def _register_attention_hooks(self):
-        # Register forward hooks on decoder cross-attention modules to capture attention probs
+        """Register forward hooks on decoder cross-attention modules to capture attention weights.
+        
+        This ensures attention weights are ALWAYS captured for provenance computation,
+        independent of model configuration flags like output_attentions.
+        
+        Raises:
+            RuntimeError: If decoder blocks cannot be accessed or no hooks can be registered
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        
         try:
             decoder_blocks = getattr(self.base_model, "model", self.base_model).decoder.block
-        except Exception:
-            return
+        except AttributeError as e:
+            raise RuntimeError(
+                f"Cannot access decoder blocks for attention capture. "
+                f"Model structure may be incompatible. Error: {e}"
+            ) from e
 
         def make_hook(layer_idx):
             def hook(module, inputs, output):
+                """Extract attention weights from T5 cross-attention output.
+                
+                T5's EncDecAttention returns a tuple:
+                (hidden_states, present_key_value_state, position_bias, attention_weights)
+                
+                The attention_weights tensor has shape (batch, num_heads, seq_len, encoder_len)
+                """
                 attn = None
+                
+                # Handle tuple output (standard T5 behavior)
                 if isinstance(output, tuple):
-                    # T5 returns (hidden_states, present_key_value_state, position_bias, attn_weights?)
-                    for item in output[::-1]:
+                    # Attention weights are typically the last item in the tuple
+                    # They should be a 4D tensor: (batch, heads, seq_len, encoder_len)
+                    for item in reversed(output):
                         if hasattr(item, "dim") and item.dim() == 4:
-                            attn = item
-                            break
+                            # Verify shape looks reasonable for attention weights
+                            if item.size(0) >= 1 and item.size(1) >= 1:  # batch and heads
+                                attn = item
+                                break
+                # Handle direct tensor output (uncommon but possible)
                 elif hasattr(output, "dim") and output.dim() == 4:
                     attn = output
+                
                 if attn is not None:
                     self._captured_cross_attn.append((layer_idx, attn.detach().cpu()))
+                    self._hooks_fired_count += 1
+                else:
+                    logger.warning(
+                        f"Hook on layer {layer_idx} fired but could not extract attention weights. "
+                        f"Output type: {type(output)}, Output: {output if not isinstance(output, tuple) else f'tuple of {len(output)} items'}"
+                    )
             return hook
 
+        self._hooks_registered_count = 0
+        hook_errors = []
+        
         for idx, block in enumerate(decoder_blocks):
             try:
+                # T5 structure: decoder.block[i].layer[1] is cross-attention
+                # layer[0] is self-attention, layer[1] is cross-attention, layer[2] is FFN
                 attn_mod = block.layer[1].EncDecAttention
                 handle = attn_mod.register_forward_hook(make_hook(idx))
                 self._attention_hooks.append(handle)
-            except Exception:
+                self._hooks_registered_count += 1
+            except (AttributeError, IndexError) as e:
+                hook_errors.append(f"Layer {idx}: {e}")
                 continue
+        
+        if self._hooks_registered_count == 0:
+            error_details = "; ".join(hook_errors[:3])  # Show first 3 errors
+            raise RuntimeError(
+                f"Failed to register any attention hooks. Cannot capture attention weights for provenance. "
+                f"Errors: {error_details}"
+            )
+        
+        logger.info(
+            f"Registered {self._hooks_registered_count} attention capture hooks "
+            f"on decoder cross-attention layers"
+        )
 
     def _remove_attention_hooks(self):
         for h in self._attention_hooks:
@@ -249,7 +304,17 @@ class LexarGenerator:
 
         # --- Step 7: Generate with evidence masking ---
         self._clear_attention_capture()
-        self._register_attention_hooks()
+        
+        # Register hooks to capture attention weights for provenance
+        # This is independent of model config flags and ALWAYS captures attention
+        if track_provenance:
+            try:
+                self._register_attention_hooks()
+            except RuntimeError as e:
+                raise RuntimeError(
+                    f"Cannot enable provenance tracking: {e}"
+                ) from e
+        
         with torch.no_grad():
             encoder_outputs = self.base_model.encoder(
                 input_ids=input_ids,
@@ -268,7 +333,9 @@ class LexarGenerator:
                 return_dict_in_generate=True,
                 output_attentions=True,
             )
-        self._remove_attention_hooks()
+        
+        if track_provenance:
+            self._remove_attention_hooks()
 
         # --- Step 8: Decode answer ---
         # Retrieve sequences and (optionally) attentions
@@ -328,8 +395,16 @@ class LexarGenerator:
             if cross_attentions:
                 try:
                     import numpy as np
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    
+                    layers_tracked = 0
                     for layer_idx, attn in enumerate(cross_attentions):
                         if not hasattr(attn, "dim") or attn.dim() != 4:
+                            logger.warning(
+                                f"Skipping layer {layer_idx}: unexpected attention shape "
+                                f"(expected 4D tensor, got {attn.shape if hasattr(attn, 'shape') else type(attn)})"
+                            )
                             continue
                         attn_np = attn[0].detach().cpu().numpy()  # (num_heads, seq_len, enc_len)
                         attn_mean = attn_np.mean(axis=0)
@@ -338,10 +413,33 @@ class LexarGenerator:
                             attention_weights=attn_mean,
                             attention_heads=attn_np,
                         )
+                        layers_tracked += 1
+                    
+                    if layers_tracked == 0:
+                        raise RuntimeError(
+                            f"Provenance tracking failed: {len(cross_attentions)} attention tensors found "
+                            f"but none had valid 4D shape"
+                        )
+                    
+                    logger.info(
+                        f"Successfully tracked attention from {layers_tracked} decoder layers "
+                        f"({self._hooks_fired_count} hook invocations)"
+                    )
+                    
+                except RuntimeError:
+                    raise  # Re-raise our own errors
                 except Exception as exc:
-                    raise RuntimeError(f"Failed to capture cross-attention for provenance: {exc}") from exc
+                    raise RuntimeError(
+                        f"Failed to process cross-attention for provenance: {exc}"
+                    ) from exc
             else:
-                raise RuntimeError("Provenance requested but no cross-attention weights were captured.")
+                # This should never happen if hooks were registered successfully
+                raise RuntimeError(
+                    f"Provenance requested but no cross-attention weights were captured. "
+                    f"Registered {self._hooks_registered_count} hooks, "
+                    f"{self._hooks_fired_count} fired during generation. "
+                    f"This indicates a model incompatibility or generation failure."
+                )
 
         # --- Step 9: Build response with provenance ---
         result = {
@@ -360,8 +458,11 @@ class LexarGenerator:
         }
 
         # Add token-level provenance if tracked
+        # Note: We suppress mismatch warnings here because span-level provenance (citations)
+        # is the authoritative explainability unit. Token-level mismatches are expected due to
+        # subword tokenization (e.g., end tokens without corresponding attention weights).
         if token_provenance_tracker:
-            token_provenances = token_provenance_tracker.get_provenances()
+            token_provenances = token_provenance_tracker.get_provenances(suppress_mismatch_warnings=True)
             result["token_provenances"] = [p.to_dict() for p in token_provenances]
             result["provenance_stats"] = token_provenance_tracker.get_stats().to_dict()
             result["has_token_provenance"] = len(token_provenances) > 0
