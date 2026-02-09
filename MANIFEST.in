@@ -1,0 +1,20 @@
+include README.md
+include LICENSE
+include pyproject.toml
+
+recursive-include lexar *.py
+recursive-exclude lexar __pycache__
+recursive-exclude lexar *.pyc
+recursive-exclude lexar *.pyo
+
+# Exclude non-package directories
+prune backend
+prune scripts
+prune data
+prune evaluation
+prune tests
+
+global-exclude *.py[cod]
+global-exclude __pycache__
+global-exclude *.so
+global-exclude .DS_Store
