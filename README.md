@@ -1,8 +1,35 @@
 # LEXAR: Legal EXplainable Augmented Reasoner
 
+[![PyPI version](https://badge.fury.io/py/lexar-ai.svg)](https://badge.fury.io/py/lexar-ai)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+**A pip-installable research framework for evidence-grounded legal question answering.**
+
+```bash
+pip install lexar-ai
+```
+
+```python
+from lexar import LexarPipeline
+
+pipeline = LexarPipeline()
+result = pipeline.answer("What is the punishment for murder under IPC?")
+print(result["answer"])
+```
+
+---
+
 ## 1. Project Overview
 
 **LEXAR (Legal EXplainable Augmented Reasoner)** is a retrieval-augmented generation system for legal question answering that prioritizes explainability and evidence grounding. The system is designed with strict architectural constraints to prevent hallucination and ensure all answers are supported by cited legal text. LEXAR models legal QA as latent-variable inference: $P(y | q, D) \approx P(y | q, R(q))$, where retrieval is not optional and generation is constrained via hard attention masking. The decoder may attend only to retrieved legal chunks and the user query, making hallucination prevention architectural rather than post-hoc.
+
+**Key Features**:
+- 🎯 **Evidence-First Architecture**: No generation without retrieval; hard attention masking prevents hallucination
+- 📊 **Explainable Provenance**: Token-level attribution maps every generated word to source legal text
+- ✅ **Safety Guarantees**: Evidence sufficiency gating rejects answers with insufficient support
+- 🔬 **Research-Grade**: Deterministic retrieval, reproducible training, CPU-compatible
+- 📦 **Pip-Installable**: `pip install lexar-ai` for easy integration into your projects
 
 ---
 
@@ -234,7 +261,7 @@ Where:
 ### Implementation
 
 ```python
-from backend.app.services.generation.evidence_gating import EvidenceSufficiencyGate
+from lexar.generation.evidence_gating import EvidenceSufficiencyGate
 
 # Initialize with default threshold (0.5)
 gate = EvidenceSufficiencyGate()
@@ -463,42 +490,61 @@ distances, indices = index.search(query_embedding, k=10)
 ```
 /home/garv/projects/legalrag/
 ├── README.md                          # This file
-├── backend/
+├── pyproject.toml                     # PEP 621 packaging configuration
+├── lexar/                             # Main installable package
+│   ├── __init__.py                   # Public API exports
+│   ├── __version__.py                # Version metadata
+│   ├── cli.py                        # CLI entry point (lexar command)
+│   ├── lexar_pipeline.py             # LexarPipeline (main entry point)
+│   ├── config.py                     # Configuration
+│   ├── generation/                   # T5 decoder & provenance tracking
+│   │   ├── attention_mask.py         # Evidence-constrained attention
+│   │   ├── token_provenance.py       # Token→chunk attribution
+│   │   ├── evidence_gating.py        # Sufficiency gating
+│   │   ├── lexar_generator.py        # End-to-end generation
+│   │   └── decoder.py                # Custom T5 decoder
+│   ├── retrieval/                    # FAISS index & query encoding
+│   │   ├── embedder.py               # SentenceTransformer wrapper
+│   │   ├── ipc_retriever.py          # IPC retrieval
+│   │   └── multi_index_retriever.py  # Multi-corpus retrieval
+│   ├── reranking/                    # Cross-encoder ranking
+│   │   └── cross_encoder.py          # Legal cross-encoder
+│   ├── ingestion/                    # Statute parsing & chunking
+│   │   ├── ipc_ingestor.py           # IPC ingestion
+│   │   └── judgment_ingestor.py      # Judgment ingestion
+│   ├── chunking/                     # Chunk strategies
+│   │   ├── ipc_chunker.py            # Section-aligned chunking
+│   │   └── generic_chunker.py        # Generic text chunking
+│   ├── citation/                     # Citation rendering
+│   │   ├── citation_mapper.py        # Chunk→citation mapping
+│   │   └── citation_renderer.py      # Citation formatting
+│   └── utils/                        # Shared utilities
+├── backend/                           # Optional API server (not installed)
 │   └── app/
-│       ├── config.py                  # Configuration (model paths, thresholds)
-│       ├── main.py                    # FastAPI server
-│       ├── api/                       # REST endpoints
-│       ├── services/
-│       │   ├── ingestion/             # Statute parsing & chunking
-│       │   ├── retrieval/             # FAISS index & query encoding
-│       │   ├── reranker/              # Cross-encoder ranking
-│       │   └── generation/            # T5 decoder & provenance tracking
-│       │       ├── attention_mask.py  # Evidence-constrained attention
-│       │       ├── token_provenance.py # Token→chunk attribution
-│       │       ├── evidence_gating.py # Sufficiency gating
-│       │       └── lexar_generator.py # End-to-end generation
-│       └── utils/                     # Utilities (embedder, tokenizer)
-├── data/
-│   ├── raw_docs/                      # Raw statute texts
-│   ├── processed_docs/                # Parsed chunks
+│       ├── main.py                   # FastAPI server
+│       └── api/                      # REST endpoints
+├── data/                              # Data artifacts (not installed)
+│   ├── raw_docs/                     # Raw statute texts
+│   ├── processed_docs/               # Parsed chunks
 │   ├── faiss_index/
-│   │   ├── ipc_crpc_iea.index        # FAISS index (2,733 vectors)
+│   │   ├── ipc_crpc_iea.index       # FAISS index (2,733 vectors)
 │   │   └── ipc_crpc_iea_chunk_ids.json # Chunk ID mapping
 │   └── models/
-│       └── lexar_query_encoder_v1/    # Fine-tuned query encoder
-├── scripts/
-│   ├── ingest_corpus.py               # Statute ingestion
+│       └── lexar_query_encoder_v1/   # Fine-tuned query encoder
+├── scripts/                           # Research scripts (not installed)
+│   ├── ingest_corpus.py              # Statute ingestion
 │   ├── build_ipc_crpc_iea_faiss_index.py  # Index building
-│   ├── train_query_encoder_v2.py      # Query encoder training
-│   ├── retrieve.py                    # Retrieval demo
-│   └── test_retrieval_validation.py   # Validation on test queries
-└── requirements.txt                   # Python dependencies
+│   ├── train_query_encoder_v2.py     # Query encoder training
+│   └── test_retrieval_validation.py  # Validation on test queries
+└── evaluation/                        # Evaluation results (not installed)
 ```
 
 **Key Directories**:
-- **backend/**: Core LEXAR services (modular architecture)
-- **data/**: Statutes, chunks, FAISS index, trained models
-- **scripts/**: Ingestion, training, and evaluation pipelines
+- **lexar/**: Pip-installable framework (core LEXAR implementation)
+- **backend/**: Optional FastAPI server (requires `pip install lexar-ai[server]`)
+- **data/**: Corpora, indices, and trained models (user-provided or downloaded separately)
+- **scripts/**: Data preparation, training, and evaluation pipelines (for research/development)
+- **evaluation/**: Benchmark results and error analysis (for research)
 
 ---
 
@@ -595,21 +641,55 @@ distances, indices = index.search(query_embedding, k=10)
 
 ### Installation
 
+**Option 1: Install from PyPI (recommended for users)**
+
 ```bash
-# Clone/navigate to repository
-cd /home/garv/projects/legalrag
+# Install LEXAR core framework (CPU-only, lightweight)
+pip install lexar-ai
 
-# Activate virtual environment
-source venv/bin/activate
+# Or with PyTorch for CPU inference
+pip install lexar-ai[cpu]
 
-# Install dependencies
-pip install -r backend/requirements.txt
+# Or with PyTorch for GPU inference
+pip install lexar-ai[gpu]
+
+# Optional: Install with server support for REST API
+pip install lexar-ai[server]
+
+# Optional: Install with development tools
+pip install lexar-ai[dev]
+
+# Install everything (CPU version + server + dev tools)
+pip install lexar-ai[all]
 ```
+
+**Why separate PyTorch?** LEXAR's dependencies (`sentence-transformers`) will pull PyTorch automatically if needed. The `[cpu]` and `[gpu]` extras are provided for explicit control.
+
+**Option 2: Install from source (for development)**
+
+```bash
+# Clone repository
+git clone https://github.com/yourusername/legalrag
+cd legalrag
+
+# Install in editable mode (CPU)
+pip install -e .[cpu]
+
+# Or install with all optional dependencies
+pip install -e .[all]
+```
+
+**Note**: The pip package includes only the LEXAR framework code. To use the system, you'll need to:
+1. Download or build your own legal corpus and FAISS index
+2. Obtain or train a query encoder model
+3. Configure paths to these resources
+
+See the repository for pre-built indices and trained models.
 
 ### Basic Usage
 
 ```python
-from backend.app.services.lexar_pipeline import LexarPipeline
+from lexar import LexarPipeline
 
 # Initialize pipeline
 pipeline = LexarPipeline()
@@ -624,10 +704,29 @@ print(f"Evidence count: {result['evidence_count']}")
 print(f"Confidence: {result['confidence']:.2f}")
 ```
 
+### CLI Usage
+
+```bash
+# Show version
+lexar --version
+
+# Ask a question
+lexar query "What is IPC Section 302?"
+
+# Enable debug mode for provenance information
+lexar query "What evidence is required for murder?" --debug
+
+# Show system information
+lexar info
+```
+
 ### Advanced Usage (Debug Mode)
 
 ```python
+from lexar import LexarPipeline
+
 # Enable debug mode to see evidence attribution
+pipeline = LexarPipeline()
 result = pipeline.answer(
     query="What evidence is required to prove murder?",
     debug_mode=True
@@ -636,6 +735,30 @@ result = pipeline.answer(
 # View token provenance
 for token_prov in result["token_provenances"]:
     print(f"{token_prov['token']}: {token_prov['top_source']} ({token_prov['attention_score']:.2f})")
+```
+
+### Development Setup
+
+For contributors working on LEXAR development:
+
+```bash
+# Clone repository
+cd /home/garv/projects/legalrag
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# or: venv\Scripts\activate  # Windows
+
+# Install in editable mode with dev dependencies
+pip install -e .[dev]
+
+# Run tests (if available)
+pytest
+
+# Format code
+black lexar/
+isort lexar/
 ```
 
 ### Running Validation
