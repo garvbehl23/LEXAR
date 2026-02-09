@@ -14,3 +14,13 @@ data/mini_legal_corpus/*
 evaluation/*.log
 .vscode/
 .idea/
+
+# Python packaging
+dist/
+build/
+*.egg-info/
+.eggs/
+wheels/
+
+# PyPI credentials
+.pypirc
