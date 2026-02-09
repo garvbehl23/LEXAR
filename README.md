@@ -511,7 +511,7 @@ distances, indices = index.search(query_embedding, k=10)
 
 ### What v1.1 Includes
 
-✅ **Core Systems**:
+**Core Systems**:
 - Dense retrieval with fine-tuned query encoder
 - Section-aligned chunking for IPC, CrPC, IEA
 - Deterministic FAISS index (2,733 chunks)
@@ -520,13 +520,13 @@ distances, indices = index.search(query_embedding, k=10)
 - Evidence sufficiency gating with configurable thresholds
 - Citation-aware text generation
 
-✅ **Training & Validation**:
+**Training & Validation**:
 - Weakly supervised contrastive training (6,993 synthetic queries)
 - Recall@5 improvement: +42.7%
 - Cross-statute negative sampling
 - Fixed seed reproducibility
 
-✅ **Safety & Auditability**:
+**Safety & Auditability**:
 - Hard attention masking (no hallucination without evidence)
 - Deterministic retrieval (IndexFlatIP)
 - Structured refusals (gating)
@@ -534,11 +534,11 @@ distances, indices = index.search(query_embedding, k=10)
 
 ### Intentionally Excluded from v1.1
 
-❌ **Generator Fine-Tuning**: Generator (T5-base) remains frozen; only query encoder is fine-tuned. Generator fine-tuning risks degrading evidence constraints and is deferred to v2.
+**Generator Fine-Tuning**: Generator (T5-base) remains frozen; only query encoder is fine-tuned. Generator fine-tuning risks degrading evidence constraints and is deferred to v2.
 
-❌ **Case Law Ingestion**: Current version covers statutes only (IPC, CrPC, IEA). Case law ingestion (Indian Supreme Court judgments, High Court decisions) is planned for v1.2+.
+**Case Law Ingestion**: Current version covers statutes only (IPC, CrPC, IEA). Case law ingestion (Indian Supreme Court judgments, High Court decisions) is planned for v1.2+.
 
-❌ **Heuristic Re-ranking**: v1.1 uses only cross-encoder scoring. Domain-specific heuristics (e.g., boosting recent amendments, recent judgments) are deferred.
+**Heuristic Re-ranking**: v1.1 uses only cross-encoder scoring. Domain-specific heuristics (e.g., boosting recent amendments, recent judgments) are deferred.
 
 ### Versioning Strategy
 
