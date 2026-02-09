@@ -30,17 +30,17 @@ def test_provenance_fails_without_attention():
     # Try to compute provenance without attention weights
     try:
         tracker.compute_provenances()
-        print("❌ FAIL: Should have raised RuntimeError")
+        print("FAIL: Should have raised RuntimeError")
         return False
     except RuntimeError as e:
         if "No attention weights recorded" in str(e):
-            print(f"✅ PASS: Correctly raised error: {e}")
+            print(f"PASS: Correctly raised error: {e}")
             return True
         else:
-            print(f"❌ FAIL: Wrong error message: {e}")
+            print(f"FAIL: Wrong error message: {e}")
             return False
     except Exception as e:
-        print(f"❌ FAIL: Wrong exception type: {type(e).__name__}: {e}")
+        print(f"FAIL: Wrong exception type: {type(e).__name__}: {e}")
         return False
 
 
@@ -59,13 +59,13 @@ def test_hook_registration_validation():
     try:
         generator._register_attention_hooks()
         hooks_count = generator._hooks_registered_count
-        print(f"✅ PASS: Successfully registered {hooks_count} hooks")
+        print(f"PASS: Successfully registered {hooks_count} hooks")
         
         # Clean up
         generator._remove_attention_hooks()
         return True
     except RuntimeError as e:
-        print(f"❌ FAIL: Hook registration failed (this may be OK if model structure changed): {e}")
+        print(f"FAIL: Hook registration failed (this may be OK if model structure changed): {e}")
         return False
 
 
@@ -86,8 +86,8 @@ if __name__ == "__main__":
     print(f"  Test 2 (Hook registration): {'PASS' if test2 else 'FAIL'}")
     
     if test1 and test2:
-        print("\n✅ All tests passed! Attention capture hardening is working correctly.")
+        print("\nAll tests passed! Attention capture hardening is working correctly.")
         sys.exit(0)
     else:
-        print("\n❌ Some tests failed.")
+        print("\nSome tests failed.")
         sys.exit(1)
