@@ -20,123 +20,39 @@ print(result["answer"])
 
 ---
 
-## 1. Project Overview
+## Overview
+LEXAR is a research-grade, evidence-grounded RAG framework for legal QA with deterministic retrieval and token-level provenance tracking.
 
-**LEXAR (Legal EXplainable Augmented Reasoner)** is a retrieval-augmented generation system for legal question answering that prioritizes explainability and evidence grounding. The system is designed with strict architectural constraints to prevent hallucination and ensure all answers are supported by cited legal text. LEXAR models legal QA as latent-variable inference: $P(y | q, D) \approx P(y | q, R(q))$, where retrieval is not optional and generation is constrained via hard attention masking. The decoder may attend only to retrieved legal chunks and the user query, making hallucination prevention architectural rather than post-hoc.
+## Architecture
+Query → Query Encoder → FAISS Retrieval → Reranking → Evidence Gate → Controlled Generation → Provenance → Citations
 
-**Key Features**:
-- 🎯 **Evidence-First Architecture**: No generation without retrieval; hard attention masking prevents hallucination
-- 📊 **Explainable Provenance**: Token-level attribution maps every generated word to source legal text
-- ✅ **Safety Guarantees**: Evidence sufficiency gating rejects answers with insufficient support
-- 🔬 **Research-Grade**: Deterministic retrieval, reproducible training, CPU-compatible
-- 📦 **Pip-Installable**: `pip install lexar-ai` for easy integration into your projects
+## Research Results (v1.1)
+6,993 synthetic queries with weakly supervised contrastive training yielded retrieval gains:
+- Recall@1: 16.14% → 19.57%
+- Recall@5: 29.43% → 42.00%
 
----
-
-## 2. System Architecture
-
-LEXAR implements a modular, auditable pipeline with localized error attribution:
-
-```
-Query → Dense Retrieval → Evidence Ranking → Context Fusion → 
-Evidence-Constrained Generation → Token Provenance → 
-Citation-Aware Output
-```
-
-### Core Pipeline Stages
-
-| Stage | Component | Purpose |
-|-------|-----------|---------|
-| **Retrieval** | Query encoder + FAISS index | Dense retrieval of top-K evidence chunks |
-| **Ranking** | Cross-encoder reranker | Relevance-based re-ranking of retrieved chunks |
-| **Evidence Selection** | Attention masking | Hard masking ensures attention only to retrieved evidence |
-| **Generation** | T5-base decoder | Evidence-constrained text generation |
-| **Attribution** | Token provenance tracker | Maps generated tokens to source chunks via attention weights |
-| **Safety** | Sufficiency gating | Rejects answers with insufficient evidence (max attention < threshold) |
-
-### Design Principles
-
-1. **Modularity**: Errors must be localizable to a stage (retrieval, ranking, generation, attribution)
-2. **Auditability**: No end-to-end black boxes; each component has interpretable inputs/outputs
-3. **Hard Constraints**: Attention masking uses $\{0, -\infty\}$ to prevent attending outside evidence
-4. **Determinism**: FAISS IndexFlatIP ensures reproducible retrieval; fixed seeds for reproducible training
-5. **Evidence-First**: No generation without evidence; no citation without attention
-
----
-
-## 3. Supported Legal Corpus
-
-LEXAR v1.1 supports three Indian legal statutes with section-aligned chunking:
-
-| Statute | Code | Chunks | Coverage |
-|---------|------|--------|----------|
-| **Indian Penal Code** | IPC | 922 | Sections 1–511 (substantive criminal law) |
-| **Code of Criminal Procedure** | CrPC | 1,409 | Sections 1–565 (procedural rules) |
-| **Indian Evidence Act** | IEA | 402 | Sections 1–167 (evidentiary rules) |
-| **Total** | — | **2,733** | Complete coverage of core legal framework |
-
-**Coverage Strategy**: Sections are chunked at the section boundary (each section forms a complete chunk), preserving legal structure and enabling section-level citations.
-
----
-
-## 4. Data Ingestion
-
-### Statute Chunking
-
-Statutes are chunked deterministically at section boundaries:
-
-1. **Section Identification**: Parse statute into sections (e.g., "Section 302" → IPC)
-2. **Boundary Preservation**: Each chunk is exactly one section, no splitting across sections
-3. **Metadata Attachment**: Each chunk stores statute, section number, and full section text
-4. **Determinism**: Chunking is reproducible and independent of random state
-
-**Example**:
-```
-Chunk ID: ipc_302
-Statute: IPC
-Section: 302
-Text: "Punishment for murder. —Whoever commits murder shall, if the act by which 
-the death is caused is committed with the intention of causing death, or with the 
-knowledge that the act is likely to cause death, be punished with death, or 
-life-imprisonment..."
-```
-
-### Adding New Statutes
-
-To ingest a new statute:
-
+## Installation
 ```bash
-# 1. Place statute text in data/raw_docs/
-# 2. Run ingestion script
-python scripts/ingest_corpus.py \
-  --statute-path data/raw_docs/new_statute.txt \
-  --statute-code NEW_CODE \
-  --output-dir data/processed_docs/
-
-# 3. Rebuild FAISS index with new chunks
-python scripts/build_ipc_crpc_iea_faiss_index.py
+pip install lexar-ai
 ```
 
-The ingestion pipeline:
-- Parses statute structure (sections, subsections)
-- Creates section-aligned chunks
-- Encodes chunks with frozen chunk encoder (sentence-transformers/all-MiniLM-L6-v2)
-- Stores chunk metadata (statute, section, text)
-- Appends to FAISS index (IndexFlatIP)
+## Minimal Usage Example
+```python
+from lexar import LexarPipeline
 
----
+pipeline = LexarPipeline()
+result = pipeline.answer("What is the punishment for murder under IPC?")
+print(result["answer"])
+```
 
-## 5. Retrieval System
+## Intended Audience
+Researchers, legal NLP teams, RAG research.
 
-### Architecture
+## Non-Goals
+LEXAR is not a legal advice engine and not a general-purpose chatbot.
 
-The retrieval system consists of two components:
-
-1. **Query Encoder** (fine-tuned): Encodes user queries into 384-dimensional normalized vectors
-2. **Chunk Encoder** (frozen): Encodes legal chunks into the same space at index time
-3. **FAISS Index** (IndexFlatIP): Deterministic inner-product search for cosine similarity
-
-### Weakly Supervised Contrastive Training
+## License
+MIT License. See LICENSE.
 
 The query encoder was fine-tuned using weakly supervised contrastive learning over IPC + CrPC:
 
