@@ -1,0 +1,9 @@
+streamlit
+requests
+pandas
+numpy
+sentence-transformers
+faiss-cpu
+matplotlib
+networkx
+```
