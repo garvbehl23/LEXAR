@@ -1,3 +1,6 @@
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from backend.app.services.retrieval.ipc_retriever import IPCRetriever
 from backend.app.services.lexar_pipeline import LexarPipeline
 

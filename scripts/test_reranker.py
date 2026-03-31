@@ -1,3 +1,6 @@
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import json
 from backend.app.services.retrieval.retriever import DenseRetriever
 from backend.app.services.reranking.cross_encoder import LegalCrossEncoderReranker
