@@ -1,6 +1,6 @@
 """
-LEXAR Legal AI — Streamlit Frontend
-====================================
+LEXAR Legal AI — Streamlit Frontend  (Spotify-dark redesign)
+=============================================================
 Run from the project root:
     streamlit run frontend/app.py
 
@@ -14,7 +14,6 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Optional
 
 import streamlit as st
 
@@ -22,116 +21,481 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-# ── Page config (must be first Streamlit call) ─────────────────────────────
+# ── Page config ────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="LEXAR Legal AI",
+    page_title="LEXAR · Legal AI",
     page_icon="⚖️",
     layout="wide",
     initial_sidebar_state="expanded",
-    menu_items={
-        "Get Help": "https://github.com/garvbehl",
-        "About": "LEXAR v1.1.1 — Legal Explainable Augmented Reasoner by Garv Behl",
-    },
+    menu_items={"About": "LEXAR v1.1.1 — Legal Explainable Augmented Reasoner by Garv Behl"},
 )
 
-# ── Custom CSS ─────────────────────────────────────────────────────────────
-st.markdown(
-    """
+# ══════════════════════════════════════════════════════════════════════════════
+# GLOBAL CSS  — Spotify-style dark theme
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown("""
 <style>
-/* ─── Header ─────────────────────────────────────────────── */
-.lexar-header {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-    padding: 1.5rem 2rem;
-    border-radius: 12px;
-    margin-bottom: 1.5rem;
-    color: white;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+/* ── Reset & base ─────────────────────────────────────────────────────── */
+html, body, [class*="css"] {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+
+/* ── Kill Streamlit chrome ────────────────────────────────────────────── */
+#MainMenu, footer, header { visibility: hidden; }
+.stDeployButton { display: none; }
+
+/* ── App background ───────────────────────────────────────────────────── */
+.stApp {
+    background: #0a0a0a !important;
+}
+
+/* ── Main content area ────────────────────────────────────────────────── */
+.main .block-container {
+    padding: 1.5rem 2.5rem 4rem 2.5rem !important;
+    max-width: 1100px;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────────────── */
+[data-testid="stSidebar"] {
+    background: #111111 !important;
+    border-right: 1px solid #1e1e1e !important;
+}
+[data-testid="stSidebar"] > div:first-child {
+    padding-top: 1rem;
+    padding-bottom: 2rem;
+}
+[data-testid="stSidebar"] * { color: #b3b3b3 !important; }
+[data-testid="stSidebar"] h1,
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3 { color: #ffffff !important; }
+
+/* ── Sidebar selectbox / slider / checkbox ────────────────────────────── */
+[data-testid="stSidebar"] .stSelectbox > div > div {
+    background: #1a1a1a !important;
+    border: 1px solid #333 !important;
+    border-radius: 6px !important;
+    color: #fff !important;
+}
+[data-testid="stSidebar"] .stSlider .stSlider { color: #1db954 !important; }
+[data-testid="stSidebar"] .stSlider [data-baseweb="slider"] div[role="slider"] {
+    background: #1db954 !important;
+    border-color: #1db954 !important;
+}
+
+/* ── Tabs ─────────────────────────────────────────────────────────────── */
+[data-testid="stTabs"] [role="tablist"] {
+    background: transparent !important;
+    border-bottom: 1px solid #1e1e1e !important;
+    gap: 0 !important;
+}
+[data-testid="stTabs"] [role="tab"] {
+    background: transparent !important;
+    color: #6b6b6b !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+    padding: 0.75rem 1.5rem !important;
+    border: none !important;
+    border-radius: 0 !important;
+    transition: color 0.2s !important;
+}
+[data-testid="stTabs"] [role="tab"]:hover { color: #fff !important; }
+[data-testid="stTabs"] [role="tab"][aria-selected="true"] {
+    color: #1db954 !important;
+    border-bottom: 2px solid #1db954 !important;
+}
+
+/* ── Metric cards ─────────────────────────────────────────────────────── */
+[data-testid="metric-container"] {
+    background: #181818 !important;
+    border: 1px solid #282828 !important;
+    border-radius: 12px !important;
+    padding: 1.1rem 1.25rem !important;
+}
+[data-testid="metric-container"] label {
+    color: #a7a7a7 !important;
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.1em !important;
+    text-transform: uppercase !important;
+}
+[data-testid="metric-container"] [data-testid="stMetricValue"] {
+    color: #ffffff !important;
+    font-size: 1.6rem !important;
+    font-weight: 700 !important;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────── */
+.stButton > button[kind="primary"] {
+    background: #1db954 !important;
+    color: #000 !important;
+    border: none !important;
+    border-radius: 500px !important;
+    font-weight: 700 !important;
+    font-size: 0.85rem !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+    padding: 0.65rem 2rem !important;
+    transition: transform 0.1s, background 0.2s !important;
+}
+.stButton > button[kind="primary"]:hover {
+    background: #1ed760 !important;
+    transform: scale(1.03) !important;
+    color: #000 !important;
+}
+.stButton > button[kind="primary"]:active { transform: scale(0.98) !important; }
+
+.stButton > button[kind="secondary"] {
+    background: transparent !important;
+    color: #b3b3b3 !important;
+    border: 1px solid #333 !important;
+    border-radius: 500px !important;
+    font-weight: 600 !important;
+    font-size: 0.82rem !important;
+    padding: 0.6rem 1.5rem !important;
+    transition: border-color 0.2s, color 0.2s !important;
+}
+.stButton > button[kind="secondary"]:hover {
+    border-color: #fff !important;
+    color: #fff !important;
+}
+
+/* ── Text inputs / textareas ──────────────────────────────────────────── */
+.stTextArea textarea, .stTextInput input {
+    background: #1a1a1a !important;
+    border: 1px solid #2a2a2a !important;
+    border-radius: 8px !important;
+    color: #ffffff !important;
+    font-size: 0.95rem !important;
+    line-height: 1.6 !important;
+    transition: border-color 0.2s !important;
+    padding: 0.85rem 1rem !important;
+}
+.stTextArea textarea:focus, .stTextInput input:focus {
+    border-color: #1db954 !important;
+    box-shadow: 0 0 0 2px rgba(29,185,84,0.18) !important;
+    outline: none !important;
+}
+.stTextArea textarea::placeholder, .stTextInput input::placeholder {
+    color: #535353 !important;
+}
+
+/* ── File uploader ────────────────────────────────────────────────────── */
+[data-testid="stFileUploader"] {
+    background: #161616 !important;
+    border: 2px dashed #282828 !important;
+    border-radius: 12px !important;
+    transition: border-color 0.2s !important;
+}
+[data-testid="stFileUploader"]:hover { border-color: #1db954 !important; }
+[data-testid="stFileUploader"] * { color: #a7a7a7 !important; }
+
+/* ── Expanders ────────────────────────────────────────────────────────── */
+[data-testid="stExpander"] {
+    background: #161616 !important;
+    border: 1px solid #242424 !important;
+    border-radius: 10px !important;
+    margin-bottom: 0.5rem !important;
+}
+[data-testid="stExpander"] summary {
+    color: #b3b3b3 !important;
+    font-weight: 600 !important;
+    font-size: 0.85rem !important;
+    letter-spacing: 0.04em !important;
+}
+[data-testid="stExpander"] summary:hover { color: #fff !important; }
+
+/* ── DataFrames ───────────────────────────────────────────────────────── */
+[data-testid="stDataFrame"] { border-radius: 10px !important; overflow: hidden !important; }
+[data-testid="stDataFrame"] div[data-grid-canvas] { background: #161616 !important; }
+
+/* ── Progress bar ─────────────────────────────────────────────────────── */
+.stProgress > div > div > div > div {
+    background: linear-gradient(90deg, #1db954 0%, #1ed760 100%) !important;
+    border-radius: 4px !important;
+}
+.stProgress > div > div { background: #282828 !important; border-radius: 4px !important; }
+
+/* ── Alerts / Info blocks ─────────────────────────────────────────────── */
+[data-testid="stAlert"] {
+    border-radius: 10px !important;
+    border: none !important;
+    font-size: 0.9rem !important;
+}
+
+/* ── Divider ──────────────────────────────────────────────────────────── */
+hr { border-color: #1e1e1e !important; margin: 1.5rem 0 !important; }
+
+/* ─────────────────────────────────────────────────────────────────────── */
+/* CUSTOM COMPONENTS                                                        */
+/* ─────────────────────────────────────────────────────────────────────── */
+
+/* ── Page hero ────────────────────────────────────────────────────────── */
+.hero-banner {
+    background: linear-gradient(135deg, #0d2818 0%, #0a1a0e 40%, #050d07 100%);
+    border: 1px solid #1a3a21;
+    border-radius: 16px;
+    padding: 2.5rem 2.5rem 2rem 2.5rem;
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+}
+.hero-banner::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 220px; height: 220px;
+    background: radial-gradient(circle, rgba(29,185,84,0.12) 0%, transparent 70%);
+    border-radius: 50%;
+}
+.hero-banner::after {
+    content: '';
+    position: absolute;
+    bottom: -40px; left: 40%;
+    width: 180px; height: 180px;
+    background: radial-gradient(circle, rgba(29,185,84,0.06) 0%, transparent 70%);
+    border-radius: 50%;
+}
+.hero-eyebrow {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #1db954;
+    margin-bottom: 0.5rem;
+}
+.hero-title {
+    font-size: 2.8rem;
+    font-weight: 900;
+    color: #ffffff;
+    line-height: 1.1;
+    margin: 0 0 0.5rem 0;
+    letter-spacing: -0.02em;
+}
+.hero-sub {
+    font-size: 1rem;
+    color: #a7a7a7;
+    margin: 0;
+    font-weight: 400;
+}
+
+/* ── Section label ────────────────────────────────────────────────────── */
+.section-label {
+    font-size: 0.67rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #6b6b6b;
+    margin-bottom: 0.75rem;
+    margin-top: 2rem;
+}
+
+/* ── Answer card ──────────────────────────────────────────────────────── */
+.answer-card {
+    background: #181818;
+    border: 1px solid #282828;
+    border-radius: 14px;
+    padding: 1.75rem 2rem;
+    margin: 1.25rem 0;
+    position: relative;
+}
+.answer-card-success { border-left: 3px solid #1db954; }
+.answer-card-warn    { border-left: 3px solid #f59e0b; background: #171209; border-color: #2a2010; }
+.answer-card-error   { border-left: 3px solid #ef4444; background: #170909; border-color: #2a1010; }
+
+.answer-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #1db954;
+    margin-bottom: 0.85rem;
+}
+.answer-label-warn  { color: #f59e0b; }
+.answer-label-error { color: #ef4444; }
+
+.answer-text {
+    font-size: 1.05rem;
+    line-height: 1.8;
+    color: #e4e4e4;
+    font-weight: 400;
+}
+
+/* ── Citation pill ────────────────────────────────────────────────────── */
+.citation-row { margin-top: 1.25rem; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.cit-label { font-size: 0.7rem; color: #535353; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600; }
+.cit-primary {
+    background: #1db954;
+    color: #000;
+    border-radius: 500px;
+    padding: 3px 14px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+.cit-secondary {
+    background: #282828;
+    color: #b3b3b3;
+    border: 1px solid #333;
+    border-radius: 500px;
+    padding: 3px 13px;
+    font-size: 0.78rem;
+    font-weight: 500;
+}
+
+/* ── Stage progress row ───────────────────────────────────────────────── */
+.stage-row {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 10px;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid #1a1a1a;
 }
-.lexar-header h1 { margin: 0; font-size: 2rem; font-weight: 700; }
-.lexar-header p  { margin: 0; opacity: 0.75; font-size: 0.9rem; }
+.stage-dot-active  { width:8px; height:8px; border-radius:50%; background:#1db954; flex-shrink:0; animation: pulse 1s infinite; }
+.stage-dot-done    { width:8px; height:8px; border-radius:50%; background:#1db954; flex-shrink:0; }
+.stage-dot-pending { width:8px; height:8px; border-radius:50%; background:#333; flex-shrink:0; }
+.stage-text-active { color:#e4e4e4; font-size:0.88rem; font-weight:500; }
+.stage-text-done   { color:#535353; font-size:0.88rem; text-decoration: line-through; }
+.stage-text-pending{ color:#333;    font-size:0.88rem; }
 
-/* ─── Answer box ─────────────────────────────────────────── */
-.answer-box {
-    background: #f0fdf4;
-    border-left: 4px solid #16a34a;
-    border-radius: 8px;
-    padding: 1.25rem 1.5rem;
-    margin: 1rem 0;
-    font-size: 1rem;
-    line-height: 1.7;
-    color: #14532d;
-}
-.answer-box-warn {
-    background: #fffbeb;
-    border-left: 4px solid #d97706;
-    border-radius: 8px;
-    padding: 1.25rem 1.5rem;
-    margin: 1rem 0;
-    color: #78350f;
-}
-.answer-box-error {
-    background: #fef2f2;
-    border-left: 4px solid #dc2626;
-    border-radius: 8px;
-    padding: 1.25rem 1.5rem;
-    margin: 1rem 0;
-    color: #7f1d1d;
+@keyframes pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(29,185,84,0.4); }
+    50%      { box-shadow: 0 0 0 6px rgba(29,185,84,0); }
 }
 
-/* ─── Citation chips ─────────────────────────────────────── */
-.citation-primary {
+/* ── History pill ─────────────────────────────────────────────────────── */
+.history-pill-row { display:flex; flex-wrap:wrap; gap:8px; margin-top:0.5rem; }
+.history-pill {
+    background: #1a1a1a;
+    border: 1px solid #282828;
+    border-radius: 500px;
+    padding: 4px 14px;
+    font-size: 0.78rem;
+    color: #a7a7a7;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
     display: inline-block;
-    background: #1e3a5f;
-    color: white;
-    border-radius: 20px;
-    padding: 2px 12px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    margin-right: 6px;
 }
-.citation-supporting {
-    display: inline-block;
-    background: #64748b;
-    color: white;
-    border-radius: 20px;
-    padding: 2px 12px;
-    font-size: 0.8rem;
-    margin-right: 4px;
+.history-pill:hover { border-color: #1db954; color: #fff; }
+
+/* ── Model card ───────────────────────────────────────────────────────── */
+.model-card {
+    background: #181818;
+    border: 1px solid #242424;
+    border-radius: 12px;
+    padding: 1.25rem 1.4rem;
+    margin-bottom: 1rem;
+    transition: border-color 0.2s, transform 0.15s;
+}
+.model-card:hover { border-color: #333; transform: translateY(-2px); }
+.model-card-icon { font-size: 1.5rem; margin-bottom: 0.5rem; }
+.model-card-title { font-size: 0.85rem; font-weight: 700; color: #fff; margin-bottom: 0.25rem; }
+.model-card-desc  { font-size: 0.78rem; color: #6b6b6b; line-height: 1.5; }
+
+/* ── Index badge ──────────────────────────────────────────────────────── */
+.index-badge {
+    display:inline-block;
+    background:#1a2a1e;
+    border:1px solid #1d3a23;
+    color:#1db954;
+    border-radius:6px;
+    padding:2px 10px;
+    font-size:0.72rem;
+    font-weight:700;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    margin-bottom:0.3rem;
 }
 
-/* ─── Stage indicator ────────────────────────────────────── */
-.stage-label {
-    font-size: 0.82rem;
-    color: #6b7280;
-    font-style: italic;
+/* ── Eval metric card ─────────────────────────────────────────────────── */
+.eval-card {
+    background: #181818;
+    border: 1px solid #242424;
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
 }
+.eval-card-num  { font-size: 2.4rem; font-weight: 800; color: #1db954; letter-spacing:-0.02em; }
+.eval-card-label{ font-size: 0.7rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:#535353; margin-top:0.3rem; }
 
-/* ─── Status badge ───────────────────────────────────────── */
-.badge-success { color: #16a34a; font-weight: 700; }
-.badge-warn    { color: #d97706; font-weight: 700; }
-.badge-error   { color: #dc2626; font-weight: 700; }
-
-/* ─── Card ───────────────────────────────────────────────── */
-.info-card {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 1rem 1.25rem;
-    margin-bottom: 0.75rem;
+/* ── Sidebar logo area ────────────────────────────────────────────────── */
+.sb-logo {
+    display:flex; align-items:center; gap:10px;
+    padding:0.5rem 0 1.5rem 0;
 }
-.info-card h4 { margin: 0 0 0.25rem 0; font-size: 1rem; color: #1e293b; }
-.info-card p  { margin: 0; font-size: 0.85rem; color: #64748b; }
+.sb-logo-icon { font-size:1.8rem; }
+.sb-logo-text { font-size:1.1rem; font-weight:800; color:#fff !important; letter-spacing:-0.01em; }
+.sb-logo-ver  { font-size:0.65rem; color:#535353 !important; font-weight:500; letter-spacing:0.08em; }
 
-/* ─── Sidebar ────────────────────────────────────────────── */
-.sidebar-section { margin-bottom: 1rem; }
-.pipeline-ready  { color: #16a34a; font-weight: 600; font-size: 0.9rem; }
-.pipeline-none   { color: #6b7280; font-size: 0.9rem; }
+/* ── Sidebar nav item ─────────────────────────────────────────────────── */
+.sb-nav-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #535353 !important;
+    font-weight: 700;
+    margin-top: 1.5rem;
+    margin-bottom: 0.4rem;
+}
+.sb-status-dot-green { display:inline-block; width:7px; height:7px; border-radius:50%; background:#1db954; margin-right:6px; vertical-align:middle; }
+.sb-status-dot-grey  { display:inline-block; width:7px; height:7px; border-radius:50%; background:#535353; margin-right:6px; vertical-align:middle; }
+
+/* ── Pipeline status bar ──────────────────────────────────────────────── */
+.pipeline-status-ready {
+    display:flex; align-items:center; gap:8px;
+    background:#0d1f12; border:1px solid #1a3a21;
+    border-radius:8px; padding:0.6rem 1rem;
+    margin-top:0.5rem;
+}
+.pipeline-status-none {
+    display:flex; align-items:center; gap:8px;
+    background:#161616; border:1px solid #242424;
+    border-radius:8px; padding:0.6rem 1rem;
+    margin-top:0.5rem;
+}
+.ps-label { font-size:0.82rem; color:#b3b3b3 !important; font-weight:500; }
+.ps-sub   { font-size:0.72rem; color:#535353 !important; }
+
+/* ── Loading skeleton shimmer ─────────────────────────────────────────── */
+.shimmer {
+    background: linear-gradient(90deg, #1a1a1a 25%, #242424 50%, #1a1a1a 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius:8px; height:18px; margin-bottom:10px;
+}
+@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+/* ── Quick suggestion chips ───────────────────────────────────────────── */
+.suggestion-chip {
+    display:inline-block;
+    background:#161616;
+    border:1px solid #242424;
+    color:#a7a7a7;
+    border-radius:500px;
+    padding:6px 16px;
+    font-size:0.8rem;
+    cursor:pointer;
+    transition: all 0.15s;
+    margin: 3px;
+}
+.suggestion-chip:hover { background:#1a2a1e; border-color:#1db954; color:#fff; }
+
+/* ── Upload zone extra ────────────────────────────────────────────────── */
+.upload-success-card {
+    background:#0d1f12;
+    border:1px solid #1a3a21;
+    border-radius:12px;
+    padding:1.5rem 1.75rem;
+    margin-top:1rem;
+}
+.upload-success-title { font-size:1rem; font-weight:700; color:#1db954; margin-bottom:0.5rem; }
+.upload-success-row   { font-size:0.85rem; color:#a7a7a7; margin-bottom:0.25rem; }
+.upload-success-val   { color:#fff; font-weight:600; }
 </style>
-""",
-    unsafe_allow_html=True,
-)
+""", unsafe_allow_html=True)
 
 # ── Constants ──────────────────────────────────────────────────────────────
 DATA_DIR = ROOT / "data"
@@ -241,65 +605,67 @@ def _files_exist(index_name: str) -> tuple[bool, list[str]]:
 # ── Sidebar ────────────────────────────────────────────────────────────────
 def render_sidebar():
     with st.sidebar:
-        st.markdown("## ⚖️ LEXAR Legal AI")
-        st.markdown("*Legal Explainable Augmented Reasoner*")
+        # Logo
+        st.markdown("""
+<div class='sb-logo'>
+  <span class='sb-logo-icon'>⚖️</span>
+  <div>
+    <div class='sb-logo-text'>LEXAR</div>
+    <div class='sb-logo-ver'>Legal AI · v1.1.1</div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
         st.divider()
 
         # ── Knowledge Base
-        st.markdown("### 📚 Knowledge Base")
+        st.markdown("<div class='sb-nav-label'>Knowledge Base</div>", unsafe_allow_html=True)
         index_name = st.selectbox(
-            "Select Index",
+            "Index",
             options=list(INDEX_CONFIGS.keys()),
             index=0,
-            help="The FAISS index + corpus to search for evidence.",
+            help="The FAISS index + corpus searched for evidence.",
+            label_visibility="collapsed",
         )
         st.caption(INDEX_CONFIGS[index_name]["description"])
 
         ok, missing = _files_exist(index_name)
         if not ok:
-            st.error(f"Missing files:\n" + "\n".join(f"• `{m}`" for m in missing))
+            st.error("Missing: " + ", ".join(Path(m).name for m in missing))
 
         st.divider()
 
         # ── Advanced Settings
-        with st.expander("⚙️ Advanced Settings", expanded=False):
-            top_k = st.slider(
-                "Top-K Retrieval",
-                min_value=3,
-                max_value=20,
-                value=10,
-                help="Number of chunks fetched from FAISS before reranking.",
-            )
-            rerank_k = st.slider(
-                "Reranking Top-K",
-                min_value=1,
-                max_value=5,
-                value=3,
-                help="How many top-reranked chunks are passed to the generator.",
-            )
-            citation_mode = st.radio(
-                "Citation Mode",
-                options=["inline", "footnote"],
-                horizontal=True,
-                help="How citations are appended to the answer.",
-            )
-            debug_mode = st.checkbox(
-                "Debug Mode",
-                value=False,
-                help="Return attention weight distribution per evidence chunk.",
-            )
-            return_provenance = st.checkbox(
-                "Return Provenance",
-                value=False,
-                help="Include token-level provenance in the result.",
-            )
+        st.markdown("<div class='sb-nav-label'>Pipeline Settings</div>", unsafe_allow_html=True)
+        with st.expander("⚙️ Configure", expanded=False):
+            top_k = st.slider("Top-K Retrieval", 3, 20, 10,
+                help="Chunks fetched from FAISS before reranking.")
+            rerank_k = st.slider("Reranking Top-K", 1, 5, 3,
+                help="Top reranked chunks passed to generator.")
+            citation_mode = st.radio("Citation Mode", ["inline", "footnote"],
+                horizontal=True, help="How citations are attached to the answer.")
+            debug_mode = st.checkbox("Debug Mode", value=False,
+                help="Return attention distribution per chunk.")
+            return_provenance = st.checkbox("Return Provenance", value=False,
+                help="Include token-level source attribution.")
+        
+        # ── expose top_k / rerank_k outside expander with defaults if not interacted
+        if "top_k" not in dir():
+            top_k = 10
+        if "rerank_k" not in dir():
+            rerank_k = 3
+        if "citation_mode" not in dir():
+            citation_mode = "inline"
+        if "debug_mode" not in dir():
+            debug_mode = False
+        if "return_provenance" not in dir():
+            return_provenance = False
 
         st.divider()
 
         # ── Load Pipeline
-        st.markdown("### 🚀 Pipeline")
+        st.markdown("<div class='sb-nav-label'>Engine</div>", unsafe_allow_html=True)
         load_btn = st.button(
-            "▶ Load / Reload Pipeline",
+            "▶  Load Pipeline",
             use_container_width=True,
             type="primary",
             disabled=not ok,
@@ -307,110 +673,159 @@ def render_sidebar():
 
         if load_btn:
             chunks_key = "|".join(str(p) for p in INDEX_CONFIGS[index_name]["chunks"])
-            with st.spinner("Loading models… (first run may take ~30–60 s)"):
-                progress = st.empty()
-                progress.markdown(
-                    "<span class='stage-label'>⏳ Loading retriever…</span>",
-                    unsafe_allow_html=True,
-                )
-                try:
-                    pipeline = _load_pipeline_cached(index_name, chunks_key)
-                    pipeline.reranking_top_k = rerank_k
-                    pipeline.retrieval_top_k = top_k
-                    st.session_state["pipeline"] = pipeline
-                    st.session_state["pipeline_config"] = {
-                        "index_name": index_name,
-                        "top_k": top_k,
-                        "rerank_k": rerank_k,
-                        "debug_mode": debug_mode,
-                        "return_provenance": return_provenance,
-                        "citation_mode": citation_mode,
-                    }
-                    progress.empty()
-                    st.success("Pipeline ready!")
-                except Exception as exc:
-                    progress.empty()
-                    st.error(f"Failed to load pipeline: {exc}")
+            prog_ph = st.empty()
+            stages = [
+                "Loading tokenizer…",
+                "Loading FAISS index…",
+                "Loading cross-encoder…",
+                "Loading generator…",
+                "Warming up…",
+            ]
+            prog_ph.markdown(_loading_stages_html(stages, active=0), unsafe_allow_html=True)
+            try:
+                pipeline = _load_pipeline_cached(index_name, chunks_key)
+                pipeline.reranking_top_k = rerank_k
+                pipeline.retrieval_top_k = top_k
+                st.session_state["pipeline"] = pipeline
+                st.session_state["pipeline_config"] = {
+                    "index_name": index_name,
+                    "top_k": top_k,
+                    "rerank_k": rerank_k,
+                    "debug_mode": debug_mode,
+                    "return_provenance": return_provenance,
+                    "citation_mode": citation_mode,
+                }
+                prog_ph.empty()
+            except Exception as exc:
+                prog_ph.empty()
+                st.error(f"Load failed: {exc}")
 
-        # ── Status badge
+        # Status block
         if st.session_state["pipeline"] is not None:
             cfg = st.session_state["pipeline_config"]
-            st.markdown(
-                f"<span class='pipeline-ready'>● Pipeline ready</span>"
-                f"<br><span style='font-size:0.78rem;color:#6b7280'>"
-                f"{INDEX_CONFIGS[cfg['index_name']]['short']} · top_k={cfg['top_k']}"
-                f"</span>",
-                unsafe_allow_html=True,
-            )
+            short = INDEX_CONFIGS[cfg["index_name"]]["short"]
+            st.markdown(f"""
+<div class='pipeline-status-ready'>
+  <span class='sb-status-dot-green'></span>
+  <div>
+    <div class='ps-label'>Pipeline ready</div>
+    <div class='ps-sub'>{short} · top_k={cfg['top_k']}</div>
+  </div>
+</div>""", unsafe_allow_html=True)
         else:
-            st.markdown(
-                "<span class='pipeline-none'>○ Pipeline not loaded</span>",
-                unsafe_allow_html=True,
-            )
+            st.markdown("""
+<div class='pipeline-status-none'>
+  <span class='sb-status-dot-grey'></span>
+  <div class='ps-label'>Not loaded</div>
+</div>""", unsafe_allow_html=True)
 
-        st.divider()
         if st.session_state.get("use_user_doc") and st.session_state.get("user_chunks"):
             n = len(st.session_state["user_chunks"])
-            st.info(f"📎 User document active ({n} chunks)")
+            st.divider()
+            st.markdown(
+                f"<div style='font-size:0.78rem;color:#1db954;font-weight:600;"
+                f"padding:0.4rem 0'>📎 User doc active · {n} chunks</div>",
+                unsafe_allow_html=True,
+            )
 
     return index_name, top_k, rerank_k, debug_mode, return_provenance, citation_mode
 
 
+def _loading_stages_html(stages: list, active: int) -> str:
+    rows = []
+    for i, label in enumerate(stages):
+        if i < active:
+            dot = "stage-dot-done"
+            txt = "stage-text-done"
+        elif i == active:
+            dot = "stage-dot-active"
+            txt = "stage-text-active"
+        else:
+            dot = "stage-dot-pending"
+            txt = "stage-text-pending"
+        rows.append(
+            f"<div class='stage-row'>"
+            f"<span class='{dot}'></span>"
+            f"<span class='{txt}'>{label}</span>"
+            f"</div>"
+        )
+    return "".join(rows)
+
+
 # ── Tab 1: Ask LEXAR ───────────────────────────────────────────────────────
+SAMPLE_QUERIES = [
+    "Punishment for murder — IPC §302",
+    "What is culpable homicide?",
+    "Bail conditions under CrPC",
+    "Confession to police — admissible?",
+    "What is dacoity and its punishment?",
+    "Death by negligence — IPC §304A",
+]
+
 def render_qa_tab(top_k, rerank_k, debug_mode, return_provenance, citation_mode):
-    st.markdown(
-        """
-<div class='lexar-header'>
-  <span style='font-size:2.5rem'>⚖️</span>
-  <div>
-    <h1>Ask LEXAR</h1>
-    <p>Evidence-constrained legal question answering for Indian law</p>
-  </div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
+    # ── Hero banner
+    st.markdown("""
+<div class='hero-banner'>
+  <div class='hero-eyebrow'>Indian Legal AI</div>
+  <div class='hero-title'>Ask a Legal Question</div>
+  <div class='hero-sub'>Evidence-grounded answers from IPC, CrPC, IEA &amp; more — zero hallucination.</div>
+</div>""", unsafe_allow_html=True)
 
-    # ── User doc banner
+    # User doc banner
     if st.session_state.get("use_user_doc") and st.session_state.get("user_chunks"):
-        st.info("📎 **User document is active.** Your uploaded PDF will also be searched.")
+        n = len(st.session_state["user_chunks"])
+        st.markdown(
+            f"<div style='background:#0d1f12;border:1px solid #1a3a21;border-radius:8px;"
+            f"padding:0.6rem 1rem;margin-bottom:1rem;font-size:0.85rem;color:#1db954;font-weight:600;'>"
+            f"📎 User document active &nbsp;·&nbsp; <span style='color:#a7a7a7;font-weight:400'>{n} chunks will be searched</span></div>",
+            unsafe_allow_html=True,
+        )
 
-    # ── Query input
+    # ── Input area
     query = st.text_area(
-        "Your legal question",
-        placeholder="e.g. What is the punishment for murder under IPC?",
-        height=100,
+        "query",
+        placeholder="e.g.  What is the punishment for murder under IPC Section 302?",
+        height=110,
         key="query_input",
         label_visibility="collapsed",
     )
 
-    col_ask, col_clear, col_spacer = st.columns([2, 1, 6])
+    col_ask, col_clear, _sp = st.columns([1.8, 0.9, 5])
     with col_ask:
         ask_btn = st.button("⚖️  Ask LEXAR", type="primary", use_container_width=True)
     with col_clear:
-        clear_btn = st.button("✕  Clear", use_container_width=True)
+        clear_btn = st.button("Clear", use_container_width=True)
 
     if clear_btn:
         st.session_state["last_result"] = None
         st.rerun()
 
-    # ── Query history chips
+    # ── Sample queries
+    st.markdown("<div class='section-label'>Try a sample query</div>", unsafe_allow_html=True)
+    chip_cols = st.columns(3)
+    for i, sq in enumerate(SAMPLE_QUERIES):
+        if chip_cols[i % 3].button(sq, key=f"sq_{i}", use_container_width=True):
+            st.session_state["query_input"] = sq
+            st.rerun()
+
+    # ── Query history
     history = st.session_state.get("query_history", [])
     if history:
-        st.markdown("**Recent queries:**")
-        cols = st.columns(len(history))
+        st.markdown("<div class='section-label'>Recent</div>", unsafe_allow_html=True)
+        h_cols = st.columns(len(history))
         for i, hq in enumerate(history):
-            if cols[i].button(hq[:40] + ("…" if len(hq) > 40 else ""), key=f"hist_{i}"):
+            label = hq[:38] + ("…" if len(hq) > 38 else "")
+            if h_cols[i].button(label, key=f"hist_{i}", use_container_width=True):
                 st.session_state["query_input"] = hq
                 st.rerun()
 
     st.divider()
 
-    # ── Run pipeline on ask
+    # ── Run pipeline
     if ask_btn:
         _run_pipeline(query, top_k, rerank_k, debug_mode, return_provenance, citation_mode)
 
-    # ── Render last result
+    # ── Render result
     if st.session_state.get("last_result"):
         _render_result(st.session_state["last_result"], debug_mode)
 
@@ -419,40 +834,36 @@ def _run_pipeline(query, top_k, rerank_k, debug_mode, return_provenance, citatio
     """Run the pipeline with staged loading indicators."""
     pipeline = st.session_state.get("pipeline")
     if pipeline is None:
-        st.warning("⚠️ Load the pipeline first using the sidebar.")
+        st.warning("⚠️ Load the pipeline first — click **▶ Load Pipeline** in the sidebar.")
         return
     if not query or not query.strip():
-        st.warning("Please enter a question.")
+        st.warning("Enter a question before hitting Ask LEXAR.")
         return
 
-    # Rebuild pipeline UserRetriever if user doc is active
     if st.session_state.get("use_user_doc") and st.session_state.get("user_chunks"):
         try:
             from lexar.retrieval.user_retriever import UserRetriever
-            user_ret = UserRetriever(st.session_state["user_chunks"])
-            pipeline.retriever.user = user_ret
+            pipeline.retriever.user = UserRetriever(st.session_state["user_chunks"])
         except Exception as exc:
             st.warning(f"Could not attach user doc retriever: {exc}")
 
     pipeline.retrieval_top_k = top_k
     pipeline.reranking_top_k = rerank_k
 
-    # Stage indicators
-    status_box = st.empty()
-    progress_bar = st.progress(0)
+    STAGES = [
+        "Routing query to legal indices",
+        "Retrieving relevant provisions",
+        "Re-ranking evidence",
+        "Generating grounded answer",
+    ]
 
-    def _stage(label: str, pct: int):
-        status_box.markdown(
-            f"<span class='stage-label'>⏳ {label}</span>",
-            unsafe_allow_html=True,
-        )
-        progress_bar.progress(pct)
-        time.sleep(0.05)  # tiny pause so user sees the transition
+    stage_ph = st.empty()
+    prog_ph  = st.progress(0)
 
-    _stage("Stage 1/4 — Routing query to relevant legal indices…", 5)
-    _stage("Stage 2/4 — Retrieving relevant legal provisions…", 25)
-    _stage("Stage 3/4 — Re-ranking evidence by relevance…", 55)
-    _stage("Stage 4/4 — Generating evidence-constrained answer…", 75)
+    for i, label in enumerate(STAGES):
+        stage_ph.markdown(_loading_stages_html(STAGES, active=i), unsafe_allow_html=True)
+        prog_ph.progress(int((i / len(STAGES)) * 90))
+        time.sleep(0.06)
 
     try:
         result = pipeline.answer(
@@ -462,36 +873,30 @@ def _run_pipeline(query, top_k, rerank_k, debug_mode, return_provenance, citatio
             return_provenance=return_provenance,
             debug_mode=debug_mode,
         )
-        # Capture evidence chunks for display (retrieval + reranking are fast)
         try:
-            retrieved_chunks = pipeline._retrieve(
-                query.strip(), st.session_state.get("use_user_doc", False), top_k
-            )
-            evidence_chunks, _ = pipeline._rerank_and_score(query.strip(), retrieved_chunks, rerank_k)
-            result["_evidence"] = evidence_chunks
+            rc = pipeline._retrieve(query.strip(), st.session_state.get("use_user_doc", False), top_k)
+            ev, _ = pipeline._rerank_and_score(query.strip(), rc, rerank_k)
+            result["_evidence"] = ev
         except Exception:
             result["_evidence"] = []
     except Exception as exc:
-        status_box.empty()
-        progress_bar.empty()
+        stage_ph.empty()
+        prog_ph.empty()
         st.error(f"Pipeline error: {exc}")
         return
 
-    progress_bar.progress(100)
-    time.sleep(0.2)
-    status_box.empty()
-    progress_bar.empty()
+    prog_ph.progress(100)
+    time.sleep(0.15)
+    stage_ph.empty()
+    prog_ph.empty()
 
-    # Attach citation mode (passed to generator, but we can post-process too)
     result["_citation_mode"] = citation_mode
     result["_query"] = query.strip()
 
-    # Update history
     history = st.session_state.get("query_history", [])
     if query.strip() not in history:
         history.insert(0, query.strip())
-        st.session_state["query_history"] = history[:5]
-
+    st.session_state["query_history"] = history[:5]
     st.session_state["last_result"] = result
     st.rerun()
 
@@ -499,250 +904,282 @@ def _run_pipeline(query, top_k, rerank_k, debug_mode, return_provenance, citatio
 def _render_result(result: dict, debug_mode: bool):
     import plotly.graph_objects as go
 
-    status = result.get("status", "unknown")
-
-    # ── Metrics row (always shown)
-    col1, col2, col3 = st.columns(3)
+    status     = result.get("status", "unknown")
     confidence = result.get("confidence", 0.0)
-    evidence_count = result.get("evidence_count", 0)
+    ev_count   = result.get("evidence_count", 0)
 
-    status_label = {
-        "success": "✅ Grounded",
-        "insufficient_evidence": "⚠️ Insufficient Evidence",
-        "no_evidence": "❌ No Evidence",
-        "generation_error": "🔥 Generation Error",
-    }.get(status, status)
+    # ── Top metrics row
+    st.markdown("<div class='section-label'>Result</div>", unsafe_allow_html=True)
+    c1, c2, c3, c4 = st.columns(4)
 
-    delta_color = "normal" if status == "success" else "off"
-    col1.metric("Confidence", f"{confidence:.0%}", delta_color=delta_color)
-    col2.metric("Evidence Chunks", evidence_count)
-    col3.metric("Status", status_label)
+    conf_color = "#1db954" if confidence >= 0.6 else ("#f59e0b" if confidence >= 0.3 else "#ef4444")
+    status_map = {
+        "success":               ("✅", "Grounded"),
+        "insufficient_evidence": ("⚠️", "Low Evidence"),
+        "no_evidence":           ("❌", "No Evidence"),
+        "generation_error":      ("🔥", "Error"),
+    }
+    s_icon, s_label = status_map.get(status, ("❓", status))
 
-    st.divider()
+    c1.metric("Confidence",  f"{confidence:.0%}")
+    c2.metric("Evidence",    f"{ev_count} chunks")
+    c3.metric("Status",      f"{s_icon} {s_label}")
+    c4.metric("Query",       f"{len(result.get('_query',''))} chars")
 
-    # ── Status-specific rendering
+    st.markdown("<div style='margin-bottom:0.5rem'></div>", unsafe_allow_html=True)
+
+    # ── Answer card
     if status == "success":
-        answer = result.get("answer", "")
-        st.markdown(
-            f"<div class='answer-box'>{answer}</div>",
-            unsafe_allow_html=True,
-        )
-
-        # Citations
+        answer       = result.get("answer", "")
         evidence_ids = result.get("evidence_ids", [])
+
+        # Build citation HTML
+        cit_html = ""
         if evidence_ids:
-            primary = evidence_ids[0] if evidence_ids else None
-            supporting = evidence_ids[1:] if len(evidence_ids) > 1 else []
+            cit_html = "<div class='citation-row'><span class='cit-label'>Sources</span>"
+            cit_html += f"<span class='cit-primary'>{evidence_ids[0]}</span>"
+            for sid in evidence_ids[1:]:
+                cit_html += f"<span class='cit-secondary'>{sid}</span>"
+            cit_html += "</div>"
 
-            citation_html = ""
-            if primary:
-                citation_html += f"<span class='citation-primary'>Primary: {primary}</span>"
-            for sid in supporting:
-                citation_html += f"<span class='citation-supporting'>{sid}</span>"
-            if citation_html:
-                st.markdown(citation_html, unsafe_allow_html=True)
+        st.markdown(f"""
+<div class='answer-card answer-card-success'>
+  <div class='answer-label'>LEXAR Answer</div>
+  <div class='answer-text'>{answer}</div>
+  {cit_html}
+</div>""", unsafe_allow_html=True)
 
-        # Evidence details expander
-        with st.expander("📋 Evidence Details", expanded=False):
+        # Evidence details
+        with st.expander("📋  Evidence Chunks", expanded=False):
             raw_ev = result.get("_evidence", [])
             if raw_ev:
                 import pandas as pd
                 rows = []
                 for chunk in raw_ev:
                     meta = chunk.get("metadata", {})
-                    rows.append(
-                        {
-                            "Section": meta.get("section", chunk.get("chunk_id", "—")),
-                            "Statute": meta.get("statute", meta.get("source", "—")),
-                            "Rerank Score": f"{chunk.get('rerank_score', chunk.get('score', 0.0)):.3f}",
-                            "Preview": chunk.get("text", "")[:150] + "…",
-                        }
-                    )
+                    rows.append({
+                        "Section":      meta.get("section", chunk.get("chunk_id", "—")),
+                        "Statute":      meta.get("statute", meta.get("source", "—")),
+                        "Score":        f"{chunk.get('rerank_score', chunk.get('score', 0.0)):.3f}",
+                        "Text Preview": chunk.get("text", "")[:160] + "…",
+                    })
                 st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
             else:
-                st.info("Evidence chunk details not returned (enable debug mode for full details).")
+                st.caption("Enable Debug Mode for full chunk details.")
 
-        # Provenance expander
+        # Provenance
         if result.get("provenance"):
-            with st.expander("🔍 Token Provenance", expanded=False):
-                prov = result["provenance"]
-                st.json(prov)
+            with st.expander("🔍  Token Provenance", expanded=False):
+                st.json(result["provenance"])
 
-        # Debug expander
+        # Debug attention chart
         if debug_mode and result.get("debug"):
-            with st.expander("🔬 Debug: Attention Distribution", expanded=False):
+            with st.expander("🔬  Attention Distribution", expanded=False):
                 debug = result["debug"]
                 if isinstance(debug, dict):
-                    # Try to plot chunk attention weights
                     attn = debug.get("chunk_attention_mass") or debug.get("attention_per_chunk")
                     if attn:
                         labels = list(attn.keys()) if isinstance(attn, dict) else [f"Chunk {i}" for i in range(len(attn))]
                         values = list(attn.values()) if isinstance(attn, dict) else list(attn)
-                        fig = go.Figure(
-                            go.Bar(
-                                x=labels,
-                                y=values,
-                                marker_color="#1e3a5f",
-                            )
-                        )
+                        fig = go.Figure(go.Bar(
+                            x=labels, y=values,
+                            marker_color="#1db954",
+                            marker_line_color="#0d2818",
+                            marker_line_width=1.5,
+                        ))
                         fig.update_layout(
-                            title="Attention Mass per Evidence Chunk",
-                            xaxis_title="Chunk",
-                            yaxis_title="Attention Mass",
+                            title=None,
+                            xaxis_title="Chunk", yaxis_title="Attention Mass",
                             yaxis_range=[0, 1],
-                            height=300,
-                            margin=dict(l=0, r=0, t=40, b=0),
+                            height=280,
+                            plot_bgcolor="#111",
+                            paper_bgcolor="#111",
+                            font=dict(color="#b3b3b3", size=11),
+                            margin=dict(l=0, r=0, t=10, b=0),
                         )
+                        fig.update_xaxes(gridcolor="#1e1e1e")
+                        fig.update_yaxes(gridcolor="#1e1e1e")
                         st.plotly_chart(fig, use_container_width=True)
                     else:
                         st.json(debug)
 
     elif status == "insufficient_evidence":
-        st.markdown(
-            "<div class='answer-box-warn'>"
-            "<strong>⚠️ LEXAR cannot answer this question with sufficient evidence grounding.</strong>"
-            "</div>",
-            unsafe_allow_html=True,
-        )
-
         max_attn = result.get("max_attention", 0.0)
         required = result.get("required_threshold", 0.5)
-        deficit = result.get("deficit", 0.0)
+        deficit  = result.get("deficit", 0.0)
 
-        # Gauge chart
-        fig = go.Figure(
-            go.Indicator(
-                mode="gauge+number",
-                value=max_attn,
-                title={"text": "Max Attention on Evidence"},
-                gauge={
-                    "axis": {"range": [0, 1], "tickwidth": 1},
-                    "bar": {"color": "#d97706"},
-                    "steps": [
-                        {"range": [0, required], "color": "#fef3c7"},
-                        {"range": [required, 1], "color": "#d1fae5"},
-                    ],
-                    "threshold": {
-                        "line": {"color": "#16a34a", "width": 3},
-                        "thickness": 0.8,
-                        "value": required,
-                    },
+        # Gauge
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=max_attn,
+            number={"suffix": "", "font": {"color": "#f59e0b", "size": 28}},
+            title={"text": "Max Attention on Evidence", "font": {"color": "#a7a7a7", "size": 13}},
+            gauge={
+                "axis": {"range": [0, 1], "tickcolor": "#333", "tickwidth": 1, "tickcolor": "#333"},
+                "bar": {"color": "#f59e0b", "thickness": 0.3},
+                "bgcolor": "#181818",
+                "bordercolor": "#282828",
+                "steps": [
+                    {"range": [0, required], "color": "#1a1208"},
+                    {"range": [required, 1],  "color": "#0d1f12"},
+                ],
+                "threshold": {
+                    "line": {"color": "#1db954", "width": 3},
+                    "thickness": 0.75,
+                    "value": required,
                 },
-            )
+            },
+        ))
+        fig.update_layout(
+            height=230,
+            paper_bgcolor="#111",
+            font=dict(color="#b3b3b3"),
+            margin=dict(l=20, r=20, t=20, b=0),
         )
-        fig.update_layout(height=250, margin=dict(l=20, r=20, t=30, b=0))
-        st.plotly_chart(fig, use_container_width=False)
 
-        st.caption(f"Deficit: **{deficit:.0%}** below the {required:.0%} threshold")
-
-        reason = result.get("reason", "")
-        if reason:
-            st.info(reason)
-
+        reason      = result.get("reason", "")
         suggestions = result.get("suggestions", [])
-        if suggestions:
-            st.markdown("**📌 Suggestions:**")
-            for s in suggestions:
-                st.markdown(f"• {s}")
+        sugg_html   = "".join(f"<li style='margin-bottom:4px;color:#a7a7a7'>{s}</li>" for s in suggestions)
+
+        st.markdown(f"""
+<div class='answer-card answer-card-warn'>
+  <div class='answer-label answer-label-warn'>⚠️ Insufficient Evidence</div>
+  <div class='answer-text' style='font-size:0.95rem'>
+    LEXAR cannot produce a grounded answer — the retrieved evidence did not reach
+    the required attention threshold (<strong style='color:#fff'>{required:.0%}</strong>).
+    Current max: <strong style='color:#f59e0b'>{max_attn:.0%}</strong> &nbsp;·&nbsp;
+    Deficit: <strong style='color:#ef4444'>{deficit:.0%}</strong>
+  </div>
+  {f"<div style='margin-top:0.8rem;font-size:0.88rem;color:#b3b3b3'>{reason}</div>" if reason else ""}
+  {f"<ul style='margin:1rem 0 0 1rem;padding:0;font-size:0.88rem'>{sugg_html}</ul>" if suggestions else ""}
+</div>""", unsafe_allow_html=True)
+        st.plotly_chart(fig, use_container_width=False)
 
         ev_summary = result.get("evidence_summary", "")
         if ev_summary:
-            with st.expander("📋 Evidence Summary"):
+            with st.expander("📋  Evidence Summary"):
                 st.markdown(ev_summary)
 
     elif status == "no_evidence":
-        st.markdown(
-            "<div class='answer-box-error'>"
-            "<strong>❌ No relevant legal material found for your query.</strong>"
-            "</div>",
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            "**Suggestions:**\n"
-            "- Check spelling of legal terms\n"
-            "- Try broader phrasing (e.g. 'punishment for theft' instead of 'section 379 penalty')\n"
-            "- Switch to a larger index (e.g. LEXAR Medium) in the sidebar"
-        )
+        st.markdown("""
+<div class='answer-card answer-card-error'>
+  <div class='answer-label answer-label-error'>❌ No Evidence Found</div>
+  <div class='answer-text' style='font-size:0.95rem'>
+    No relevant legal material was found for your query.
+  </div>
+  <ul style='margin:1rem 0 0 1.5rem;padding:0;font-size:0.88rem;color:#a7a7a7'>
+    <li>Check spelling of legal terms</li>
+    <li>Try broader phrasing — e.g. "punishment for theft" not "section 379 penalty"</li>
+    <li>Switch to a larger index (LEXAR Medium) in the sidebar</li>
+  </ul>
+</div>""", unsafe_allow_html=True)
 
     else:
-        # generation_error or unknown
         answer = result.get("answer", "An unknown error occurred.")
-        st.markdown(
-            f"<div class='answer-box-error'>🔥 {answer}</div>",
-            unsafe_allow_html=True,
-        )
+        st.markdown(f"""
+<div class='answer-card answer-card-error'>
+  <div class='answer-label answer-label-error'>🔥 Generation Error</div>
+  <div class='answer-text' style='font-size:0.9rem'>{answer}</div>
+</div>""", unsafe_allow_html=True)
 
 
 # ── Tab 2: Upload & Ingest ─────────────────────────────────────────────────
 def render_upload_tab():
-    st.markdown("## 📎 Upload a Legal PDF")
-    st.markdown(
-        "Upload any Indian legal document (statute, judgment, contract) "
-        "to query it alongside the selected knowledge base."
-    )
+    st.markdown("""
+<div class='hero-banner'>
+  <div class='hero-eyebrow'>Document Intelligence</div>
+  <div class='hero-title'>Upload a Legal PDF</div>
+  <div class='hero-sub'>Ingest any statute, judgment or contract and query it alongside the knowledge base.</div>
+</div>""", unsafe_allow_html=True)
 
-    uploaded_file = st.file_uploader(
-        "Choose a PDF file",
-        type=["pdf"],
-        help="Maximum file size: 10 MB",
-        accept_multiple_files=False,
-    )
+    col_up, col_info = st.columns([3, 2])
 
-    if uploaded_file is not None:
-        size_mb = uploaded_file.size / (1024 * 1024)
-        col1, col2 = st.columns(2)
-        col1.markdown(
-            f"<div class='info-card'>"
-            f"<h4>📄 {uploaded_file.name}</h4>"
-            f"<p>Size: {size_mb:.2f} MB</p>"
-            f"</div>",
-            unsafe_allow_html=True,
+    with col_up:
+        uploaded_file = st.file_uploader(
+            "Drop your PDF here",
+            type=["pdf"],
+            help="Max 10 MB",
+            accept_multiple_files=False,
+            label_visibility="collapsed",
         )
 
-        if size_mb > 10:
-            st.error("File exceeds 10 MB limit. Please upload a smaller document.")
-            return
+        if uploaded_file is not None:
+            size_mb = uploaded_file.size / (1024 * 1024)
+            st.markdown(
+                f"<div style='font-size:0.85rem;color:#a7a7a7;margin:0.5rem 0'>"
+                f"<strong style='color:#fff'>{uploaded_file.name}</strong> &nbsp;·&nbsp; {size_mb:.2f} MB</div>",
+                unsafe_allow_html=True,
+            )
+            if size_mb > 10:
+                st.error("File exceeds 10 MB limit.")
+                return
+            if st.button("⬆️  Ingest Document", type="primary"):
+                _ingest_pdf(uploaded_file)
 
-        if st.button("⬆️  Ingest Document", type="primary"):
-            _ingest_pdf(uploaded_file)
+    with col_info:
+        st.markdown("""
+<div style='background:#161616;border:1px solid #242424;border-radius:12px;padding:1.5rem'>
+  <div style='font-size:0.67rem;letter-spacing:0.14em;text-transform:uppercase;color:#535353;font-weight:700;margin-bottom:1rem'>How it works</div>
+  <div style='display:flex;gap:10px;margin-bottom:0.85rem'>
+    <span style='color:#1db954;font-size:1.1rem'>1</span>
+    <div>
+      <div style='font-size:0.85rem;color:#fff;font-weight:600'>Extract</div>
+      <div style='font-size:0.78rem;color:#6b6b6b'>Text is extracted from the PDF using pdfplumber</div>
+    </div>
+  </div>
+  <div style='display:flex;gap:10px;margin-bottom:0.85rem'>
+    <span style='color:#1db954;font-size:1.1rem'>2</span>
+    <div>
+      <div style='font-size:0.85rem;color:#fff;font-weight:600'>Chunk</div>
+      <div style='font-size:0.78rem;color:#6b6b6b'>Document split into 300-word overlapping chunks</div>
+    </div>
+  </div>
+  <div style='display:flex;gap:10px'>
+    <span style='color:#1db954;font-size:1.1rem'>3</span>
+    <div>
+      <div style='font-size:0.85rem;color:#fff;font-weight:600'>Index</div>
+      <div style='font-size:0.78rem;color:#6b6b6b'>FAISS in-memory index built — ready to search</div>
+    </div>
+  </div>
+</div>""", unsafe_allow_html=True)
 
     # ── Use-in-Q&A toggle
     if st.session_state.get("user_chunks"):
         n = len(st.session_state["user_chunks"])
+        st.divider()
         use = st.checkbox(
-            f"☑ Use this document in Q&A queries ({n} chunks)",
+            f"Use this document in Q&A queries ({n} chunks)",
             value=st.session_state.get("use_user_doc", False),
             key="use_user_doc_toggle",
         )
         st.session_state["use_user_doc"] = use
         if use:
-            st.success("✅ Document will be searched during Q&A.")
-        else:
-            st.info("○ Document loaded but not active. Check the box to activate.")
+            st.markdown(
+                "<div style='background:#0d1f12;border:1px solid #1a3a21;border-radius:8px;"
+                "padding:0.65rem 1rem;font-size:0.85rem;color:#1db954;font-weight:600;margin-top:0.5rem'>"
+                "✅ Document will be searched alongside the knowledge base</div>",
+                unsafe_allow_html=True,
+            )
 
 
 def _ingest_pdf(uploaded_file):
-    """Process the uploaded PDF: extract text, chunk, store in session state."""
     try:
         import pdfplumber
     except ImportError:
         st.error("pdfplumber is not installed. Run: pip install pdfplumber")
         return
-
     try:
         from lexar.chunking.generic_chunker import chunk_generic_text
     except ImportError:
-        st.error("Could not import lexar chunking module. Check your installation.")
+        st.error("Could not import lexar chunking module.")
         return
 
     with st.status("Processing document…", expanded=True) as status_widget:
         st.write("📖 Extracting text from PDF…")
         try:
-            # Save to temp file for pdfplumber
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_pdf:
                 tmp_pdf.write(uploaded_file.read())
                 tmp_path = tmp_pdf.name
-
             pages_text = []
             with pdfplumber.open(tmp_path) as pdf:
                 n_pages = len(pdf.pages)
@@ -751,45 +1188,37 @@ def _ingest_pdf(uploaded_file):
                     if text:
                         pages_text.append(text)
             os.unlink(tmp_path)
-
             full_text = "\n\n".join(pages_text)
             if not full_text.strip():
-                st.error("Could not extract text from PDF (possibly scanned/image-only).")
+                st.error("Could not extract text (possibly a scanned/image PDF).")
                 return
-
-            st.write(f"✅ Extracted {len(full_text):,} characters from {n_pages} pages.")
+            st.write(f"✅ {len(full_text):,} characters from {n_pages} pages")
         except Exception as exc:
-            st.error(f"Text extraction failed: {exc}")
+            st.error(f"Extraction failed: {exc}")
             return
 
         st.write("✂️ Chunking document…")
         try:
             chunks = chunk_generic_text(full_text)
-            # Enrich metadata
             for i, chunk in enumerate(chunks):
                 chunk["chunk_id"] = f"user_{i}"
-                if "metadata" not in chunk:
-                    chunk["metadata"] = {}
+                chunk.setdefault("metadata", {})
                 chunk["metadata"]["source"] = "UserPDF"
                 chunk["metadata"]["document"] = uploaded_file.name
         except Exception as exc:
             st.error(f"Chunking failed: {exc}")
             return
+        st.write(f"✅ {len(chunks)} chunks created")
+        status_widget.update(label="Done!", state="complete", expanded=False)
 
-        st.write(f"✅ Created {len(chunks)} chunks.")
-        status_widget.update(label="Document processed!", state="complete", expanded=False)
-
-    # Success card
-    st.markdown(
-        f"<div class='info-card'>"
-        f"<h4>✅ Document Ingested</h4>"
-        f"<p><strong>File:</strong> {uploaded_file.name}</p>"
-        f"<p><strong>Pages:</strong> {n_pages} &nbsp;|&nbsp; "
-        f"<strong>Text length:</strong> {len(full_text):,} chars &nbsp;|&nbsp; "
-        f"<strong>Chunks:</strong> {len(chunks)}</p>"
-        f"</div>",
-        unsafe_allow_html=True,
-    )
+    st.markdown(f"""
+<div class='upload-success-card'>
+  <div class='upload-success-title'>✅ Document Ingested</div>
+  <div class='upload-success-row'>File &nbsp;<span class='upload-success-val'>{uploaded_file.name}</span></div>
+  <div class='upload-success-row'>Pages &nbsp;<span class='upload-success-val'>{n_pages}</span></div>
+  <div class='upload-success-row'>Text length &nbsp;<span class='upload-success-val'>{len(full_text):,} chars</span></div>
+  <div class='upload-success-row'>Chunks &nbsp;<span class='upload-success-val'>{len(chunks)}</span></div>
+</div>""", unsafe_allow_html=True)
 
     st.session_state["user_chunks"] = chunks
     st.session_state["use_user_doc"] = True
@@ -798,33 +1227,38 @@ def _ingest_pdf(uploaded_file):
 
 # ── Tab 3: Evaluation Dashboard ────────────────────────────────────────────
 def render_eval_tab():
-    st.markdown("## 📊 Evaluation Dashboard")
-    st.markdown(
-        "Run the gold-query evaluation suite against the IPC corpus. "
-        "Measures **Precision@3**, **Precision@5**, **Recall@5**, and **MRR**."
-    )
+    st.markdown("""
+<div class='hero-banner'>
+  <div class='hero-eyebrow'>Benchmarking</div>
+  <div class='hero-title'>Evaluation Dashboard</div>
+  <div class='hero-sub'>Precision@3, Precision@5, Recall@5 and MRR against 8 gold IPC queries.</div>
+</div>""", unsafe_allow_html=True)
 
-    if not GOLD_QUERIES_PATH.exists():
-        st.error(f"Gold queries file not found: `{GOLD_QUERIES_PATH}`")
-        return
-    if not EVAL_CHUNKS_PATH.exists():
-        st.error(f"IPC chunks file not found: `{EVAL_CHUNKS_PATH}`")
-        return
-    if not EVAL_INDEX_PATH.exists():
-        st.error(f"IPC FAISS index not found: `{EVAL_INDEX_PATH}`")
+    missing_files = []
+    if not GOLD_QUERIES_PATH.exists():   missing_files.append(str(GOLD_QUERIES_PATH))
+    if not EVAL_CHUNKS_PATH.exists():    missing_files.append(str(EVAL_CHUNKS_PATH))
+    if not EVAL_INDEX_PATH.exists():     missing_files.append(str(EVAL_INDEX_PATH))
+    if missing_files:
+        for mf in missing_files:
+            st.error(f"Missing: `{Path(mf).name}`")
         return
 
     with open(GOLD_QUERIES_PATH) as f:
         gold_queries = json.load(f)
 
-    st.info(f"**{len(gold_queries)} gold queries** loaded from `evaluation/gold_queries.json`.")
-
-    run_btn = st.button("▶ Run Evaluation", type="primary")
+    col_info, col_btn = st.columns([3, 1])
+    col_info.markdown(
+        f"<div style='font-size:0.9rem;color:#a7a7a7'>"
+        f"<strong style='color:#fff'>{len(gold_queries)} gold queries</strong> loaded from "
+        f"<code style='color:#1db954;font-size:0.8rem'>evaluation/gold_queries.json</code></div>",
+        unsafe_allow_html=True,
+    )
+    with col_btn:
+        run_btn = st.button("▶  Run Evaluation", type="primary", use_container_width=True)
 
     if run_btn:
         _run_evaluation(gold_queries)
 
-    # Render previous results
     if st.session_state.get("eval_results"):
         _render_eval_results(st.session_state["eval_results"])
 
@@ -949,170 +1383,160 @@ def _render_eval_results(results: dict):
     import plotly.express as px
     import pandas as pd
 
-    st.markdown("### 📈 Overall Metrics")
+    st.markdown("<div class='section-label'>Overall Metrics</div>", unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Precision@3", f"{results['precision_at_3']:.3f}")
-    c2.metric("Precision@5", f"{results['precision_at_5']:.3f}")
-    c3.metric("Recall@5",    f"{results['recall_at_5']:.3f}")
-    c4.metric("MRR",         f"{results['mrr']:.3f}")
+    metrics = [
+        ("P@3",       results["precision_at_3"]),
+        ("P@5",       results["precision_at_5"]),
+        ("Recall@5",  results["recall_at_5"]),
+        ("MRR",       results["mrr"]),
+    ]
+    for col, (label, val) in zip([c1, c2, c3, c4], metrics):
+        col.markdown(
+            f"<div class='eval-card'>"
+            f"<div class='eval-card-num'>{val:.3f}</div>"
+            f"<div class='eval-card-label'>{label}</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
 
-    # Bar chart per query
     df = pd.DataFrame(results["per_query"])
     if not df.empty:
-        st.markdown("### 📊 Per-Query Metrics")
+        st.markdown("<div class='section-label' style='margin-top:2rem'>Per-Query Breakdown</div>", unsafe_allow_html=True)
         metric_df = df[["Query", "P@3", "P@5", "Recall@5", "RR"]].melt(
             id_vars="Query", var_name="Metric", value_name="Score"
         )
         fig = px.bar(
-            metric_df,
-            x="Query",
-            y="Score",
-            color="Metric",
-            barmode="group",
-            height=380,
-            color_discrete_sequence=["#1e3a5f", "#3b82f6", "#22c55e", "#f59e0b"],
+            metric_df, x="Query", y="Score", color="Metric", barmode="group", height=360,
+            color_discrete_sequence=["#1db954", "#3b82f6", "#f59e0b", "#a78bfa"],
         )
         fig.update_layout(
-            xaxis_tickangle=-30,
+            xaxis_tickangle=-25,
             legend_title="",
-            margin=dict(l=0, r=0, t=20, b=0),
+            plot_bgcolor="#111",
+            paper_bgcolor="#111",
+            font=dict(color="#b3b3b3", size=11),
+            margin=dict(l=0, r=0, t=10, b=0),
+            bargap=0.2,
         )
+        fig.update_xaxes(gridcolor="#1a1a1a", tickfont=dict(size=10))
+        fig.update_yaxes(gridcolor="#1a1a1a", range=[0, 1.05])
         st.plotly_chart(fig, use_container_width=True)
 
-        st.markdown("### 📋 Detailed Breakdown")
+        st.markdown("<div class='section-label'>Detailed Table</div>", unsafe_allow_html=True)
         st.dataframe(df, use_container_width=True, hide_index=True)
 
 
 # ── Tab 4: About ───────────────────────────────────────────────────────────
 def render_about_tab():
-    st.markdown("## ℹ️ About LEXAR")
-    st.markdown(
-        """
-**LEXAR** (Legal Explainable Augmented Reasoner, v1.1.1) is a production-oriented 
-Retrieval-Augmented Generation system for **Indian legal question answering** by Garv Behl.
+    st.markdown("""
+<div class='hero-banner'>
+  <div class='hero-eyebrow'>About LEXAR</div>
+  <div class='hero-title'>Legal Explainable<br>Augmented Reasoner</div>
+  <div class='hero-sub'>v1.1.1 &nbsp;·&nbsp; by Garv Behl &nbsp;·&nbsp; Zero hallucination legal AI for Indian law</div>
+</div>""", unsafe_allow_html=True)
 
-Its defining property is **architectural hallucination prevention**: generation is 
-constrained by hard binary attention masking so the decoder can only attend to retrieved 
-legal chunks and the query. No answer is produced without evidence.
-"""
-    )
-
-    st.divider()
-
-    # Pipeline architecture
-    st.markdown("### 🏗️ Pipeline Architecture")
-    st.markdown(
-        """
-```
-User Query
-    │
-    ▼
-┌─────────────┐
-│ Query Router│  Keyword routing → IPC / Judgment / User docs
-└──────┬──────┘
-       │
-    ┌──┴──────────────────────────────────────┐
-    │           MultiIndexRetriever            │
-    │  IPCRetriever  JudgmentRetriever  User   │
-    │  (FAISS IndexFlatIP + LegalEmbedder)     │
-    └──────────────────┬──────────────────────┘
-                       │  top-K chunks
-                       ▼
-            ┌───────────────────┐
-            │  Cross-Encoder    │  ms-marco-MiniLM-L-6-v2
-            │  Reranker         │  → top-K reranked with scores
-            └─────────┬─────────┘
-                      │  evidence chunks
-                      ▼
-          ┌─────────────────────────┐
-          │  EvidenceSufficiencyGate│  Rejects if max attention < 0.5
-          └───────────┬─────────────┘
-                      │
-                      ▼
-          ┌─────────────────────────┐
-          │    LexarGenerator        │  flan-t5-base
-          │  Hard attention masking  │  no parametric memory leakage
-          │  Token provenance        │  every token → source chunk
-          └───────────┬─────────────┘
-                      │
-                      ▼
-          ┌─────────────────────────┐
-          │   CitationRenderer       │  inline or footnote
-          └─────────────────────────┘
-                      │
-                      ▼
-               Grounded Answer
-```
-"""
-    )
-
-    st.divider()
-
-    st.markdown("### 🤖 Model Cards")
-    cols = st.columns(2)
+    # ── Model cards grid
+    st.markdown("<div class='section-label'>Models</div>", unsafe_allow_html=True)
     model_cards = [
-        ("🔍 Query Encoder", "lexar_query_encoder_v1 (fine-tuned)\nFallback: all-MiniLM-L6-v2"),
-        ("📄 Document Encoder", "sentence-transformers/all-MiniLM-L6-v2\nUsed to build FAISS indexes"),
-        ("📊 Cross-Encoder Reranker", "cross-encoder/ms-marco-MiniLM-L-6-v2\nScores (query, chunk) pairs"),
-        ("🤖 Generator", "google/flan-t5-base\nSeq2seq, deterministic (T=0), hard attention masking"),
-        ("🔐 Evidence Gate", "Threshold: 0.50 max attention mass\nRejects under-grounded answers"),
-        ("📐 FAISS Index Type", "IndexFlatIP (inner product / cosine)\nDeterministic, no quantization"),
+        ("🔍", "Query Encoder", "lexar_query_encoder_v1 (fine-tuned)\nFallback: all-MiniLM-L6-v2"),
+        ("📄", "Document Encoder", "sentence-transformers/all-MiniLM-L6-v2\nBuilds FAISS indexes"),
+        ("📊", "Cross-Encoder", "cross-encoder/ms-marco-MiniLM-L-6-v2\nScores (query, chunk) pairs"),
+        ("🤖", "Generator", "google/flan-t5-base\nSeq2seq · T=0 · hard attention mask"),
+        ("🔐", "Evidence Gate", "Threshold: 0.50 max attention mass\nRejects under-grounded answers"),
+        ("📐", "FAISS Index", "IndexFlatIP (inner product / cosine)\nDeterministic, no quantization"),
     ]
-    for i, (title, desc) in enumerate(model_cards):
-        with cols[i % 2]:
+    cols = st.columns(3)
+    for i, (icon, title, desc) in enumerate(model_cards):
+        with cols[i % 3]:
             st.markdown(
-                f"<div class='info-card'><h4>{title}</h4><p>{desc.replace(chr(10), '<br>')}</p></div>",
+                f"<div class='model-card'>"
+                f"<div class='model-card-icon'>{icon}</div>"
+                f"<div class='model-card-title'>{title}</div>"
+                f"<div class='model-card-desc'>{desc.replace(chr(10), '<br>')}</div>"
+                f"</div>",
                 unsafe_allow_html=True,
             )
 
-    st.divider()
+    # ── Pipeline flow
+    st.markdown("<div class='section-label'>Pipeline Architecture</div>", unsafe_allow_html=True)
+    steps = [
+        ("01", "Query Router",    "Keyword matching routes to IPC / Judgment / User indexes"),
+        ("02", "Dense Retrieval", "FAISS IndexFlatIP + LegalEmbedder → top-K chunks"),
+        ("03", "Re-ranking",      "Cross-encoder rescores every (query, chunk) pair"),
+        ("04", "Evidence Gate",   "Rejects if max attention < 0.5 — no answer silently degraded"),
+        ("05", "Generation",      "flan-t5-base with hard binary attention masking on evidence"),
+        ("06", "Citation",        "Token-level provenance → inline or footnote citations"),
+    ]
+    for num, title, desc in steps:
+        st.markdown(
+            f"<div style='display:flex;gap:16px;align-items:flex-start;"
+            f"padding:0.9rem 0;border-bottom:1px solid #1a1a1a'>"
+            f"<span style='font-size:0.7rem;font-weight:800;color:#1db954;"
+            f"letter-spacing:0.1em;padding-top:2px;width:20px;flex-shrink:0'>{num}</span>"
+            f"<div>"
+            f"<div style='font-size:0.88rem;font-weight:700;color:#fff;margin-bottom:2px'>{title}</div>"
+            f"<div style='font-size:0.8rem;color:#6b6b6b'>{desc}</div>"
+            f"</div></div>",
+            unsafe_allow_html=True,
+        )
 
-    st.markdown("### 🚀 Quick-Start Guide")
-    st.markdown(
-        """
-1. **Select Index** — choose from the sidebar (LEXAR Medium recommended for general queries)
-2. **Load Pipeline** — click "▶ Load / Reload Pipeline" (first load downloads models, ~30–60 s)
-3. **Ask a Question** — type your legal question in the "Ask LEXAR" tab and click the button
-4. **Upload a Document** — go to the "Upload" tab to add a private PDF; enable "Use in Q&A" to include it
-5. **Run Evaluation** — go to the "Evaluation" tab to benchmark retrieval quality on gold queries
-
-**Sample queries:**
-- What is the punishment for murder under IPC?
-- Define culpable homicide not amounting to murder.
-- What are the provisions for bail under CrPC?
-- Is a confession to police admissible as evidence?
-- What is dacoity and what is its punishment?
-"""
-    )
-
-    st.divider()
-    st.markdown("### 📂 Available Indexes")
+    # ── Available indexes
+    st.markdown("<div class='section-label' style='margin-top:2rem'>Available Indexes</div>", unsafe_allow_html=True)
     for name, cfg in INDEX_CONFIGS.items():
-        exists_ok, missing = _files_exist(name)
-        status_icon = "✅" if exists_ok else "❌"
-        st.markdown(f"**{status_icon} {name}** — {cfg['description']}")
-        if not exists_ok:
-            for m in missing:
-                st.caption(f"  Missing: `{m}`")
+        ok, missing = _files_exist(name)
+        dot = "#1db954" if ok else "#ef4444"
+        st.markdown(
+            f"<div style='display:flex;align-items:center;gap:10px;padding:0.65rem 0;"
+            f"border-bottom:1px solid #1a1a1a'>"
+            f"<span style='width:8px;height:8px;border-radius:50%;background:{dot};"
+            f"flex-shrink:0;display:inline-block'></span>"
+            f"<div>"
+            f"<span class='index-badge'>{cfg['short']}</span> "
+            f"<span style='font-size:0.83rem;color:#a7a7a7'>{cfg['description']}</span>"
+            f"</div></div>",
+            unsafe_allow_html=True,
+        )
+
+    # ── Quick start
+    st.markdown("<div class='section-label' style='margin-top:2rem'>Quick Start</div>", unsafe_allow_html=True)
+    quick_steps = [
+        ("Select Index",    "Choose an index in the sidebar — LEXAR Medium is recommended"),
+        ("Load Pipeline",   "Click ▶ Load Pipeline (first run downloads models, ~30–60 s)"),
+        ("Ask a Question",  "Type in the Ask LEXAR tab — hit the green button"),
+        ("Upload a Doc",    "Upload tab → ingest PDF → enable Use in Q&A"),
+        ("Benchmark",       "Evaluation tab → ▶ Run Evaluation → see P@3/P@5/MRR"),
+    ]
+    for i, (t, d) in enumerate(quick_steps, 1):
+        st.markdown(
+            f"<div style='display:flex;gap:14px;align-items:flex-start;padding:0.75rem 0;"
+            f"border-bottom:1px solid #1a1a1a'>"
+            f"<span style='background:#1db954;color:#000;border-radius:50%;width:22px;height:22px;"
+            f"display:flex;align-items:center;justify-content:center;font-size:0.7rem;"
+            f"font-weight:800;flex-shrink:0;margin-top:1px'>{i}</span>"
+            f"<div><div style='font-size:0.88rem;font-weight:700;color:#fff'>{t}</div>"
+            f"<div style='font-size:0.8rem;color:#6b6b6b;margin-top:2px'>{d}</div></div></div>",
+            unsafe_allow_html=True,
+        )
 
 
 # ── Main ───────────────────────────────────────────────────────────────────
 def main():
     index_name, top_k, rerank_k, debug_mode, return_provenance, citation_mode = render_sidebar()
 
-    tab_qa, tab_upload, tab_eval, tab_about = st.tabs(
-        ["⚖️ Ask LEXAR", "📎 Upload & Ingest", "📊 Evaluation", "ℹ️ About"]
-    )
+    tab_qa, tab_upload, tab_eval, tab_about = st.tabs([
+        "⚖️  Ask LEXAR",
+        "📎  Upload",
+        "📊  Evaluation",
+        "ℹ️  About",
+    ])
 
     with tab_qa:
         render_qa_tab(top_k, rerank_k, debug_mode, return_provenance, citation_mode)
-
     with tab_upload:
         render_upload_tab()
-
     with tab_eval:
         render_eval_tab()
-
     with tab_about:
         render_about_tab()
 
