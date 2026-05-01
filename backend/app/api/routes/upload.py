@@ -3,10 +3,7 @@ import uuid
 import json
 from fastapi import APIRouter, UploadFile, File, HTTPException
 
-from backend.app.services.ingestion import (
-    extract_text_from_pdf,
-    chunk_text
-)
+from backend.app.services.ingestion.pdf_extractor import extract_text_from_pdf
 from backend.app.utils.text_cleaner import clean_text
 
 UPLOAD_DIR = "data/raw_docs"
