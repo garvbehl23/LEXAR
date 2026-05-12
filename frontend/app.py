@@ -5,7 +5,7 @@ Run from the project root:
     streamlit run frontend/app.py
 
 Requires (in addition to pyproject.toml deps):
-    pip install streamlit plotly
+    pip install streamlit plotly pdfplumber
 """
 
 import json
@@ -534,7 +534,10 @@ INDEX_CONFIGS = {
     },
 }
 
-EVAL_CHUNKS_PATH = DATA_DIR / "processed_docs" / "ipc2_chunks.json"
+# FIX 1.5 — Use ipc_chunks.json with fallback to ipc2_chunks.json for legacy setups
+_ipc2 = DATA_DIR / "processed_docs" / "ipc2_chunks.json"
+_ipc1 = DATA_DIR / "processed_docs" / "ipc_chunks.json"
+EVAL_CHUNKS_PATH = _ipc2 if _ipc2.exists() else _ipc1
 EVAL_INDEX_PATH = DATA_DIR / "faiss_index" / "ipc.index"
 GOLD_QUERIES_PATH = ROOT / "evaluation" / "gold_queries.json"
 
@@ -634,35 +637,54 @@ def render_sidebar():
 
         st.divider()
 
-        # ── Advanced Settings
+        # ── Advanced Settings — FIX 1.6: session_state-backed config, no dir() hacks
         st.markdown("<div class='sb-nav-label'>Pipeline Settings</div>", unsafe_allow_html=True)
         with st.expander("⚙️ Configure", expanded=False):
-            top_k = st.slider("Top-K Retrieval", 3, 20, 10,
-                help="Chunks fetched from FAISS before reranking.")
-            rerank_k = st.slider("Reranking Top-K", 1, 5, 3,
-                help="Top reranked chunks passed to generator.")
-            citation_mode = st.radio("Citation Mode", ["inline", "footnote"],
-                horizontal=True, help="How citations are attached to the answer.")
-            debug_mode = st.checkbox("Debug Mode", value=False,
-                help="Return attention distribution per chunk.")
-            return_provenance = st.checkbox("Return Provenance", value=False,
-                help="Include token-level source attribution.")
-        
-        # ── expose top_k / rerank_k outside expander with defaults if not interacted
-        if "top_k" not in dir():
-            top_k = 10
-        if "rerank_k" not in dir():
-            rerank_k = 3
-        if "citation_mode" not in dir():
-            citation_mode = "inline"
-        if "debug_mode" not in dir():
-            debug_mode = False
-        if "return_provenance" not in dir():
-            return_provenance = False
+            top_k = st.slider(
+                "Top-K Retrieval", 3, 20,
+                value=st.session_state.get("cfg_top_k", 10),
+                help="Chunks fetched from FAISS before reranking.",
+                key="cfg_top_k",
+            )
+            rerank_k = st.slider(
+                "Reranking Top-K", 1, 5,
+                value=st.session_state.get("cfg_rerank_k", 3),
+                help="Top reranked chunks passed to generator.",
+                key="cfg_rerank_k",
+            )
+            citation_mode = st.radio(
+                "Citation Mode", ["inline", "footnote"],
+                index=["inline", "footnote"].index(
+                    st.session_state.get("cfg_citation_mode", "inline")
+                ),
+                horizontal=True,
+                help="How citations are attached to the answer.",
+                key="cfg_citation_mode",
+            )
+            use_debug_mode = st.checkbox(
+                "Debug Mode",
+                value=st.session_state.get("cfg_debug_mode", False),
+                help="Return attention distribution per chunk.",
+                key="cfg_debug_mode",
+            )
+            use_return_provenance = st.checkbox(
+                "Return Provenance",
+                value=st.session_state.get("cfg_return_provenance", False),
+                help="Include token-level source attribution.",
+                key="cfg_return_provenance",
+            )
+
+        # Resolve to simple variable names for use below
+        # (reading from session_state guarantees correct values even when expander is collapsed)
+        top_k = st.session_state.get("cfg_top_k", 10)
+        rerank_k = st.session_state.get("cfg_rerank_k", 3)
+        citation_mode = st.session_state.get("cfg_citation_mode", "inline")
+        debug_mode = st.session_state.get("cfg_debug_mode", False)
+        return_provenance = st.session_state.get("cfg_return_provenance", False)
 
         st.divider()
 
-        # ── Load Pipeline
+        # ── Load Pipeline — FIX 3.5: spinner + toast + traceback on error
         st.markdown("<div class='sb-nav-label'>Engine</div>", unsafe_allow_html=True)
         load_btn = st.button(
             "▶  Load Pipeline",
@@ -683,7 +705,8 @@ def render_sidebar():
             ]
             prog_ph.markdown(_loading_stages_html(stages, active=0), unsafe_allow_html=True)
             try:
-                pipeline = _load_pipeline_cached(index_name, chunks_key)
+                with st.spinner("Loading models…"):
+                    pipeline = _load_pipeline_cached(index_name, chunks_key)
                 pipeline.reranking_top_k = rerank_k
                 pipeline.retrieval_top_k = top_k
                 st.session_state["pipeline"] = pipeline
@@ -696,9 +719,12 @@ def render_sidebar():
                     "citation_mode": citation_mode,
                 }
                 prog_ph.empty()
+                st.toast("✅ Pipeline loaded successfully!", icon="⚖️")
             except Exception as exc:
                 prog_ph.empty()
                 st.error(f"Load failed: {exc}")
+                import traceback
+                st.code(traceback.format_exc(), language="python")
 
         # Status block
         if st.session_state["pipeline"] is not None:
@@ -781,12 +807,14 @@ def render_qa_tab(top_k, rerank_k, debug_mode, return_provenance, citation_mode)
             unsafe_allow_html=True,
         )
 
-    # ── Input area
+    # FIX 1.3 — Read staged query from sample chips / history clicks
+    _staged = st.session_state.pop("_staged_query", "")
+
     query = st.text_area(
         "query",
+        value=_staged,
         placeholder="e.g.  What is the punishment for murder under IPC Section 302?",
         height=110,
-        key="query_input",
         label_visibility="collapsed",
     )
 
@@ -796,19 +824,21 @@ def render_qa_tab(top_k, rerank_k, debug_mode, return_provenance, citation_mode)
     with col_clear:
         clear_btn = st.button("Clear", use_container_width=True)
 
+    # FIX 2.6 — Clear both result and text area
     if clear_btn:
         st.session_state["last_result"] = None
+        st.session_state["_staged_query"] = ""
         st.rerun()
 
-    # ── Sample queries
+    # ── Sample queries — FIX 1.3: use _staged_query instead of query_input
     st.markdown("<div class='section-label'>Try a sample query</div>", unsafe_allow_html=True)
     chip_cols = st.columns(3)
     for i, sq in enumerate(SAMPLE_QUERIES):
         if chip_cols[i % 3].button(sq, key=f"sq_{i}", use_container_width=True):
-            st.session_state["query_input"] = sq
+            st.session_state["_staged_query"] = sq
             st.rerun()
 
-    # ── Query history
+    # ── Query history — FIX 1.3: use _staged_query instead of query_input
     history = st.session_state.get("query_history", [])
     if history:
         st.markdown("<div class='section-label'>Recent</div>", unsafe_allow_html=True)
@@ -816,7 +846,7 @@ def render_qa_tab(top_k, rerank_k, debug_mode, return_provenance, citation_mode)
         for i, hq in enumerate(history):
             label = hq[:38] + ("…" if len(hq) > 38 else "")
             if h_cols[i].button(label, key=f"hist_{i}", use_container_width=True):
-                st.session_state["query_input"] = hq
+                st.session_state["_staged_query"] = hq
                 st.rerun()
 
     st.divider()
@@ -833,56 +863,82 @@ def render_qa_tab(top_k, rerank_k, debug_mode, return_provenance, citation_mode)
 def _run_pipeline(query, top_k, rerank_k, debug_mode, return_provenance, citation_mode):
     """Run the pipeline with staged loading indicators."""
     pipeline = st.session_state.get("pipeline")
+
+    # FIX 3.3 — Styled "no pipeline" warning card
     if pipeline is None:
-        st.warning("⚠️ Load the pipeline first — click **▶ Load Pipeline** in the sidebar.")
+        st.markdown("""
+<div style='background:#1a1208;border:1px solid #2a2010;border-radius:10px;
+padding:1.25rem 1.5rem;margin:0.5rem 0'>
+  <div style='font-size:0.9rem;font-weight:700;color:#f59e0b;margin-bottom:0.5rem'>
+    ⚠️ Pipeline Not Loaded
+  </div>
+  <div style='font-size:0.85rem;color:#a7a7a7;line-height:1.6'>
+    Click <strong style='color:#1db954'>▶ Load Pipeline</strong> in the left sidebar
+    to initialize the retrieval and generation models before asking questions.
+    <br><br>
+    First load takes ~30–60 seconds as models are downloaded from HuggingFace.
+    Subsequent loads are instant (cached).
+  </div>
+</div>""", unsafe_allow_html=True)
         return
+
     if not query or not query.strip():
         st.warning("Enter a question before hitting Ask LEXAR.")
         return
 
+    # FIX 2.2 — Cache UserRetriever, only rebuild when chunks change
     if st.session_state.get("use_user_doc") and st.session_state.get("user_chunks"):
-        try:
-            from lexar.retrieval.user_retriever import UserRetriever
-            pipeline.retriever.user = UserRetriever(st.session_state["user_chunks"])
-        except Exception as exc:
-            st.warning(f"Could not attach user doc retriever: {exc}")
+        _chunk_count = len(st.session_state["user_chunks"])
+        if st.session_state.get("_user_retriever_chunk_count") != _chunk_count:
+            try:
+                from lexar.retrieval.user_retriever import UserRetriever
+                _ur = UserRetriever(st.session_state["user_chunks"])
+                st.session_state["_user_retriever"] = _ur
+                st.session_state["_user_retriever_chunk_count"] = _chunk_count
+            except Exception as exc:
+                st.warning(f"Could not build user doc retriever: {exc}")
+                st.session_state["_user_retriever"] = None
+        if st.session_state.get("_user_retriever"):
+            pipeline.retriever.user = st.session_state["_user_retriever"]
+    else:
+        # Detach user retriever when disabled
+        pipeline.retriever.user = None
 
     pipeline.retrieval_top_k = top_k
     pipeline.reranking_top_k = rerank_k
 
-    STAGES = [
+    stage_ph = st.empty()
+    prog_ph  = st.progress(0)
+
+    stage_ph.markdown(_loading_stages_html([
         "Routing query to legal indices",
         "Retrieving relevant provisions",
         "Re-ranking evidence",
         "Generating grounded answer",
-    ]
+    ], active=0), unsafe_allow_html=True)
+    prog_ph.progress(10)
 
-    stage_ph = st.empty()
-    prog_ph  = st.progress(0)
-
-    for i, label in enumerate(STAGES):
-        stage_ph.markdown(_loading_stages_html(STAGES, active=i), unsafe_allow_html=True)
-        prog_ph.progress(int((i / len(STAGES)) * 90))
-        time.sleep(0.06)
-
+    # FIX 3.2 — Wrap pipeline call in st.spinner; show traceback on error
     try:
-        result = pipeline.answer(
-            query=query.strip(),
-            has_user_docs=st.session_state.get("use_user_doc", False),
-            top_k=top_k,
-            return_provenance=return_provenance,
-            debug_mode=debug_mode,
-        )
-        try:
-            rc = pipeline._retrieve(query.strip(), st.session_state.get("use_user_doc", False), top_k)
-            ev, _ = pipeline._rerank_and_score(query.strip(), rc, rerank_k)
-            result["_evidence"] = ev
-        except Exception:
-            result["_evidence"] = []
+        _t_start = time.time()
+        with st.spinner("⚖️ LEXAR is thinking…"):
+            result = pipeline.answer(
+                query=query.strip(),
+                has_user_docs=st.session_state.get("use_user_doc", False),
+                top_k=top_k,
+                return_provenance=return_provenance,
+                debug_mode=debug_mode,
+            )
+        _t_elapsed = time.time() - _t_start
+        result["_elapsed_sec"] = round(_t_elapsed, 2)
+        # FIX 1.4 — _evidence is now returned directly by pipeline.answer()
+        # No second retrieval needed
     except Exception as exc:
         stage_ph.empty()
         prog_ph.empty()
         st.error(f"Pipeline error: {exc}")
+        import traceback
+        st.code(traceback.format_exc(), language="python")
         return
 
     prog_ph.progress(100)
@@ -912,7 +968,6 @@ def _render_result(result: dict, debug_mode: bool):
     st.markdown("<div class='section-label'>Result</div>", unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns(4)
 
-    conf_color = "#1db954" if confidence >= 0.6 else ("#f59e0b" if confidence >= 0.3 else "#ef4444")
     status_map = {
         "success":               ("✅", "Grounded"),
         "insufficient_evidence": ("⚠️", "Low Evidence"),
@@ -921,10 +976,21 @@ def _render_result(result: dict, debug_mode: bool):
     }
     s_icon, s_label = status_map.get(status, ("❓", status))
 
-    c1.metric("Confidence",  f"{confidence:.0%}")
-    c2.metric("Evidence",    f"{ev_count} chunks")
-    c3.metric("Status",      f"{s_icon} {s_label}")
-    c4.metric("Query",       f"{len(result.get('_query',''))} chars")
+    # FIX 2.1 — Show elapsed time in 4th metric card
+    elapsed = result.get("_elapsed_sec", 0)
+
+    # FIX 3.1 — Color-coded confidence using delta trick
+    if confidence >= 0.70:
+        conf_delta = "High"
+    elif confidence >= 0.40:
+        conf_delta = "Medium"
+    else:
+        conf_delta = "Low"
+
+    c1.metric("Confidence", f"{confidence:.0%}", delta=conf_delta)
+    c2.metric("Evidence",   f"{ev_count} chunks")
+    c3.metric("Status",     f"{s_icon} {s_label}")
+    c4.metric("Time",       f"{elapsed}s")
 
     st.markdown("<div style='margin-bottom:0.5rem'></div>", unsafe_allow_html=True)
 
@@ -949,7 +1015,7 @@ def _render_result(result: dict, debug_mode: bool):
   {cit_html}
 </div>""", unsafe_allow_html=True)
 
-        # Evidence details
+        # FIX 2.4 — Evidence chunks with full text expandable sections
         with st.expander("📋  Evidence Chunks", expanded=False):
             raw_ev = result.get("_evidence", [])
             if raw_ev:
@@ -958,26 +1024,46 @@ def _render_result(result: dict, debug_mode: bool):
                 for chunk in raw_ev:
                     meta = chunk.get("metadata", {})
                     rows.append({
-                        "Section":      meta.get("section", chunk.get("chunk_id", "—")),
-                        "Statute":      meta.get("statute", meta.get("source", "—")),
-                        "Score":        f"{chunk.get('rerank_score', chunk.get('score', 0.0)):.3f}",
-                        "Text Preview": chunk.get("text", "")[:160] + "…",
+                        "Section": meta.get("section", chunk.get("chunk_id", "—")),
+                        "Statute": meta.get("statute", meta.get("source", "—")),
+                        "Score":   f"{chunk.get('rerank_score', chunk.get('score', 0.0)):.3f}",
+                        "Preview": chunk.get("text", "")[:160] + "…",
                     })
                 st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+                st.markdown(
+                    "<div class='section-label' style='margin-top:1rem'>Full Chunk Text</div>",
+                    unsafe_allow_html=True,
+                )
+                for chunk in raw_ev:
+                    meta = chunk.get("metadata", {})
+                    sec = meta.get("section", chunk.get("chunk_id", "—"))
+                    statute = meta.get("statute", meta.get("source", "—"))
+                    score = chunk.get("rerank_score", chunk.get("score", 0.0))
+                    with st.expander(
+                        f"§{sec} — {statute}  (score: {score:.3f})",
+                        expanded=False,
+                    ):
+                        st.markdown(
+                            f"<div style='font-size:0.85rem;color:#e4e4e4;"
+                            f"line-height:1.7;white-space:pre-wrap'>"
+                            f"{chunk.get('text','')}</div>",
+                            unsafe_allow_html=True,
+                        )
             else:
-                st.caption("Enable Debug Mode for full chunk details.")
+                st.caption("Load pipeline and run a query to see evidence chunks.")
 
         # Provenance
         if result.get("provenance"):
             with st.expander("🔍  Token Provenance", expanded=False):
                 st.json(result["provenance"])
 
-        # Debug attention chart
+        # FIX 1.2 — Debug attention chart uses correct key "attention_distribution"
         if debug_mode and result.get("debug"):
             with st.expander("🔬  Attention Distribution", expanded=False):
                 debug = result["debug"]
                 if isinstance(debug, dict):
-                    attn = debug.get("chunk_attention_mass") or debug.get("attention_per_chunk")
+                    attn = debug.get("attention_distribution")
                     if attn:
                         labels = list(attn.keys()) if isinstance(attn, dict) else [f"Chunk {i}" for i in range(len(attn))]
                         values = list(attn.values()) if isinstance(attn, dict) else list(attn)
@@ -1074,6 +1160,7 @@ def _render_result(result: dict, debug_mode: bool):
   </ul>
 </div>""", unsafe_allow_html=True)
 
+    # FIX 3.4 — Show error details expander for generation errors
     else:
         answer = result.get("answer", "An unknown error occurred.")
         st.markdown(f"""
@@ -1081,6 +1168,17 @@ def _render_result(result: dict, debug_mode: bool):
   <div class='answer-label answer-label-error'>🔥 Generation Error</div>
   <div class='answer-text' style='font-size:0.9rem'>{answer}</div>
 </div>""", unsafe_allow_html=True)
+        with st.expander("🔍 Error Details", expanded=False):
+            st.markdown(
+                f"<div style='font-size:0.82rem;color:#a7a7a7;font-family:monospace'>"
+                f"Status: {status}<br>"
+                f"Evidence count: {ev_count}<br>"
+                f"Query: {result.get('_query','')}"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+            if result.get("debug"):
+                st.json(result["debug"])
 
 
 # ── Tab 2: Upload & Ingest ─────────────────────────────────────────────────
@@ -1222,6 +1320,9 @@ def _ingest_pdf(uploaded_file):
 
     st.session_state["user_chunks"] = chunks
     st.session_state["use_user_doc"] = True
+    # FIX 2.2 — Reset cached retriever so it gets rebuilt with new chunks
+    st.session_state["_user_retriever"] = None
+    st.session_state["_user_retriever_chunk_count"] = -1
     st.rerun()
 
 
@@ -1426,6 +1527,16 @@ def _render_eval_results(results: dict):
         st.markdown("<div class='section-label'>Detailed Table</div>", unsafe_allow_html=True)
         st.dataframe(df, use_container_width=True, hide_index=True)
 
+        # FIX 2.3 — CSV download button
+        csv_data = df.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label="⬇️  Download Results as CSV",
+            data=csv_data,
+            file_name="lexar_eval_results.csv",
+            mime="text/csv",
+            use_container_width=False,
+        )
+
 
 # ── Tab 4: About ───────────────────────────────────────────────────────────
 def render_about_tab():
@@ -1435,6 +1546,39 @@ def render_about_tab():
   <div class='hero-title'>Legal Explainable<br>Augmented Reasoner</div>
   <div class='hero-sub'>v1.1.1 &nbsp;·&nbsp; by Garv Behl &nbsp;·&nbsp; Zero hallucination legal AI for Indian law</div>
 </div>""", unsafe_allow_html=True)
+
+    # FIX 2.5 — Live system status cards
+    st.markdown("<div class='section-label'>System Status</div>", unsafe_allow_html=True)
+
+    try:
+        import torch
+        _gpu = torch.cuda.is_available()
+        _device_name = torch.cuda.get_device_name(0) if _gpu else "CPU"
+    except Exception:
+        _gpu = False
+        _device_name = "CPU"
+
+    _pipeline_loaded = st.session_state.get("pipeline") is not None
+    _pipeline_cfg = st.session_state.get("pipeline_config", {})
+
+    _status_col1, _status_col2, _status_col3, _status_col4 = st.columns(4)
+
+    _status_col1.metric(
+        "Pipeline",
+        "✅ Ready" if _pipeline_loaded else "⬜ Not Loaded",
+        delta=_pipeline_cfg.get("index_name", "—")[:20] if _pipeline_loaded else None,
+    )
+    _status_col2.metric("Compute", "🟢 GPU" if _gpu else "🔵 CPU", delta=_device_name[:20])
+    _status_col3.metric(
+        "Top-K",
+        _pipeline_cfg.get("top_k", "—") if _pipeline_loaded else "—",
+    )
+    _status_col4.metric(
+        "Rerank-K",
+        _pipeline_cfg.get("rerank_k", "—") if _pipeline_loaded else "—",
+    )
+
+    st.markdown("<div style='margin-bottom:1.5rem'></div>", unsafe_allow_html=True)
 
     # ── Model cards grid
     st.markdown("<div class='section-label'>Models</div>", unsafe_allow_html=True)
