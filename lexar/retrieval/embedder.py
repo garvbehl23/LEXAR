@@ -2,10 +2,8 @@ import os
 from sentence_transformers import SentenceTransformer
 import numpy as np
 
-# Path to the fine-tuned query encoder
-# embedder.py is at: backend/app/services/retrieval/embedder.py
-# Need to go up 5 levels to reach project root: retrieval → services → app → backend → legalrag
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+# lexar/retrieval/embedder.py → 3 levels up → project root
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _DEFAULT_QUERY_ENCODER_PATH = os.path.join(_PROJECT_ROOT, "data", "models", "lexar_query_encoder_v1")
 
 
