@@ -173,8 +173,6 @@ class LexarPipeline:
 
         return result
 
-        return result
-
     def _retrieve(
         self,
         query: str,

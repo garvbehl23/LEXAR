@@ -1,22 +1,44 @@
+from __future__ import annotations
+
 import faiss
 import numpy as np
-from sentence_transformers import SentenceTransformer
+
+from lexar.retrieval.embedder import LegalEmbedder
+
 
 class UserRetriever:
-    def __init__(self, chunks):
-        self.model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+    """Retriever for user-uploaded documents using in-memory FAISS index."""
+
+    def __init__(self, chunks: list[dict]):
+        self.embedder = LegalEmbedder()
         self.chunks = chunks
 
-        embeddings = self.model.encode(
-            [c["text"] for c in chunks]
-        ).astype("float32")
+        if not chunks:
+            self.index = None
+            return
+
+        texts = [c.get("text", "") for c in chunks]
+        embeddings = self.embedder.embed_texts(texts).astype("float32")
 
         dim = embeddings.shape[1]
-        self.index = faiss.IndexFlatL2(dim)
+        self.index = faiss.IndexFlatIP(dim)  # IP = cosine on normalized vectors
         self.index.add(embeddings)
 
-    def retrieve(self, query, top_k=5):
-        q_emb = self.model.encode([query]).astype("float32")
-        scores, ids = self.index.search(q_emb, top_k)
+    def retrieve(self, query: str, top_k: int = 5) -> list[dict]:
+        if self.index is None or not self.chunks:
+            return []
 
-        return [self.chunks[i] for i in ids[0] if i != -1]
+        q_emb = self.embedder.embed_query(query).astype("float32")
+        q_emb = np.expand_dims(q_emb, axis=0)
+
+        k = min(top_k, len(self.chunks))
+        scores, ids = self.index.search(q_emb, k)
+
+        results = []
+        for idx, score in zip(ids[0], scores[0]):
+            if idx == -1:
+                continue
+            chunk = dict(self.chunks[idx])
+            chunk["score"] = float(score)
+            results.append(chunk)
+        return results

@@ -1,51 +1,53 @@
+"""Legacy DenseRetriever — used by evaluation scripts and frontend eval tab."""
+from __future__ import annotations
+
 import os
 import faiss
 import numpy as np
-from sentence_transformers import SentenceTransformer
+
+from lexar.retrieval.embedder import LegalEmbedder
+
 
 class DenseRetriever:
     def __init__(
         self,
         chunks: list[dict],
         index_path: str = "data/faiss_index/ipc.index",
-        model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
     ):
         self.chunks = chunks
         self.index_path = index_path
-        self.model = SentenceTransformer(model_name)
-
-        self.embeddings = None
+        self.embedder = LegalEmbedder()
         self.index = None
 
         if os.path.exists(self.index_path):
-            self._load_index()
+            self.index = faiss.read_index(self.index_path)
         else:
             self._build_index()
 
     def _build_index(self):
-        texts = [c["text"] for c in self.chunks]
-        self.embeddings = self.model.encode(texts, show_progress_bar=True)
-        self.embeddings = np.array(self.embeddings).astype("float32")
-
-        dim = self.embeddings.shape[1]
-        self.index = faiss.IndexFlatL2(dim)
-        self.index.add(self.embeddings)
-
+        texts = [c.get("text", "") for c in self.chunks]
+        embeddings = self.embedder.embed_texts(texts).astype("float32")
+        dim = embeddings.shape[1]
+        self.index = faiss.IndexFlatIP(dim)
+        self.index.add(embeddings)
+        os.makedirs(os.path.dirname(self.index_path), exist_ok=True)
         faiss.write_index(self.index, self.index_path)
 
-    def _load_index(self):
-        self.index = faiss.read_index(self.index_path)
+    def retrieve(self, query: str, top_k: int = 5) -> list[dict]:
+        if self.index is None:
+            return []
 
-    def retrieve(self, query: str, top_k: int = 5):
-        query_embedding = self.model.encode([query])
-        query_embedding = np.array(query_embedding).astype("float32")
+        q_emb = self.embedder.embed_query(query).astype("float32")
+        q_emb = np.expand_dims(q_emb, axis=0)
 
-        distances, indices = self.index.search(query_embedding, top_k)
+        k = min(top_k, len(self.chunks))
+        scores, ids = self.index.search(q_emb, k)
 
         results = []
-        for idx, dist in zip(indices[0], distances[0]):
-            chunk = self.chunks[idx]
-            chunk["score"] = float(-dist)
+        for idx, score in zip(ids[0], scores[0]):
+            if idx == -1 or idx >= len(self.chunks):
+                continue
+            chunk = dict(self.chunks[idx])
+            chunk["score"] = float(score)
             results.append(chunk)
-
         return results
