@@ -1,0 +1,6 @@
+{
+  "/page": "app/page.js",
+  "/chat/page": "app/chat/page.js",
+  "/api/stream/route": "app/api/stream/route.js",
+  "/api/ollama-models/route": "app/api/ollama-models/route.js"
+}

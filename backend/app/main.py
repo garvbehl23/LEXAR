@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from backend.app.config import get_settings
-from backend.app.api.routes import health, upload, query
+from backend.app.api.routes import health, upload, query, stream, ollama as ollama_routes
 
 settings = get_settings()
 
@@ -62,3 +62,5 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.include_router(health.router, prefix="/health", tags=["Health"])
 app.include_router(upload.router, prefix="/upload", tags=["Upload"])
 app.include_router(query.router, prefix="/query", tags=["Query"])
+app.include_router(stream.router, prefix="/stream", tags=["Stream"])
+app.include_router(ollama_routes.router, prefix="/ollama", tags=["Ollama"])

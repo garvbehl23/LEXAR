@@ -1,0 +1,91 @@
+Traceback (most recent call last):
+  File "/home/garv/LEXAR/.venv/lib/python3.13/site-packages/pydantic_settings/sources/base.py", line 551, in __call__
+    field_value = self.prepare_field_value(field_name, field, field_value, value_is_complex)
+  File "/home/garv/LEXAR/.venv/lib/python3.13/site-packages/pydantic_settings/sources/providers/env.py", line 134, in prepare_field_value
+    raise e
+  File "/home/garv/LEXAR/.venv/lib/python3.13/site-packages/pydantic_settings/sources/providers/env.py", line 131, in prepare_field_value
+    value = self.decode_complex_value(field_name, field, value)
+  File "/home/garv/LEXAR/.venv/lib/python3.13/site-packages/pydantic_settings/sources/base.py", line 194, in decode_complex_value
+    return json.loads(value)
+           ~~~~~~~~~~^^^^^^^
+  File "/home/garv/miniconda3/lib/python3.13/json/__init__.py", line 352, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/home/garv/miniconda3/lib/python3.13/json/decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/garv/miniconda3/lib/python3.13/json/decoder.py", line 363, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/garv/LEXAR/.venv/bin/uvicorn", line 6, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/home/garv/LEXAR/.venv/lib/python3.13/site-packages/click/core.py", line 1514, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/garv/LEXAR/.venv/lib/python3.13/site-packages/click/core.py", line 1435, in main
+    rv = self.invoke(ctx)
+  File "/home/garv/LEXAR/.venv/lib/python3.13/site-packages/click/core.py", line 1298, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/garv/LEXAR/.venv/lib/python3.13/site-packages/click/core.py", line 853, in invoke
+    return callback(*args, **kwargs)
+  File "/home/garv/LEXAR/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 441, in main
+    run(
+    ~~~^
+        app,
+        ^^^^
+    ...<48 lines>...
+        reset_contextvars=reset_contextvars,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/garv/LEXAR/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 617, in run
+    server.run()
+    ~~~~~~~~~~^^
+  File "/home/garv/LEXAR/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 75, in run
+    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+  File "/home/garv/miniconda3/lib/python3.13/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/home/garv/miniconda3/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/home/garv/LEXAR/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 79, in serve
+    await self._serve(sockets)
+  File "/home/garv/LEXAR/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 86, in _serve
+    config.load()
+    ~~~~~~~~~~~^^
+  File "/home/garv/LEXAR/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 449, in load
+    self.loaded_app = import_from_string(self.app)
+                      ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/home/garv/LEXAR/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "/home/garv/miniconda3/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1023, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/home/garv/LEXAR/backend/app/main.py", line 15, in <module>
+    settings = get_settings()
+  File "/home/garv/LEXAR/backend/app/config.py", line 40, in get_settings
+    return Settings()
+  File "/home/garv/LEXAR/.venv/lib/python3.13/site-packages/pydantic_settings/main.py", line 247, in __init__
+    super().__init__(**__pydantic_self__.__class__._settings_build_values(sources, init_kwargs))
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/garv/LEXAR/.venv/lib/python3.13/site-packages/pydantic_settings/main.py", line 470, in _settings_build_values
+    source_state = source()
+  File "/home/garv/LEXAR/.venv/lib/python3.13/site-packages/pydantic_settings/sources/base.py", line 553, in __call__
+    raise SettingsError(
+        f'error parsing value for field "{field_name}" from source "{self.__class__.__name__}"'
+    ) from e
+pydantic_settings.exceptions.SettingsError: error parsing value for field "cors_origins" from source "EnvSettingsSource"

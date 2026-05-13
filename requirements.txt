@@ -23,3 +23,6 @@ requests>=2.28.0
 # Frontend
 streamlit>=1.32.0
 plotly>=5.18.0
+
+# Gemini API (optional — set GEMINI_API_KEY in .env to enable)
+google-generativeai>=0.8.0

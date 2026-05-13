@@ -21,51 +21,119 @@ PIPELINE STAGES:
 5. CITATION: Attach citations based on generation provenance
 """
 
+import json
+import os
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
 from lexar.retrieval.multi_index_retriever import MultiIndexRetriever
 from lexar.reranking.cross_encoder import LegalCrossEncoderReranker
-from lexar.generation.lexar_generator import LexarGenerator
 from lexar.citation.citation_mapper import attach_citations
+
+_DATA_ROOT = Path(__file__).resolve().parents[1] / "data"
+_PROCESSED = _DATA_ROOT / "processed_docs"
+_INDEX_DIR = _DATA_ROOT / "faiss_index"
+
+# Maps index_name → (chunks_file, index_file, ids_file)
+_INDEX_MAP: Dict[str, tuple] = {
+    "ipc": (
+        _PROCESSED / "ipc_chunks.json",
+        _INDEX_DIR / "ipc.index",
+        _INDEX_DIR / "ipc_chunk_ids.json",
+    ),
+    "ipc_crpc": (
+        _PROCESSED / "ipc_crpc_chunks.json",
+        _INDEX_DIR / "ipc_crpc.index",
+        _INDEX_DIR / "ipc_crpc_chunk_ids.json",
+    ),
+    "ipc_crpc_iea": (
+        _PROCESSED / "ipc_crpc_iea_chunks.json",
+        _INDEX_DIR / "ipc_crpc_iea.index",
+        _INDEX_DIR / "ipc_crpc_iea_chunk_ids.json",
+    ),
+    "lexar_medium": (
+        _PROCESSED / "lexar_medium_chunks.json",
+        _INDEX_DIR / "lexar_medium.index",
+        _INDEX_DIR / "lexar_medium_chunk_ids.json",
+    ),
+}
+
+
+def _build_generator():
+    """Return GeminiGenerator if GEMINI_API_KEY is set, else LexarGenerator."""
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if api_key:
+        try:
+            from lexar.generation.gemini_generator import GeminiGenerator
+            return GeminiGenerator(api_key=api_key)
+        except Exception as exc:
+            print(f"[WARN] GeminiGenerator init failed ({exc}). Falling back to flan-t5.")
+    from lexar.generation.lexar_generator import LexarGenerator
+    return LexarGenerator()
+
+
+def _load_ipc_retriever(index_name: str):
+    """Load an IPCRetriever for the given index name, or None if files are missing."""
+    entry = _INDEX_MAP.get(index_name)
+    if not entry:
+        return None
+    chunks_path, index_path, ids_path = entry
+    if not chunks_path.exists() or not index_path.exists():
+        return None
+    try:
+        from lexar.retrieval.ipc_retriever import IPCRetriever
+        return IPCRetriever(
+            chunks_path=str(chunks_path),
+            index_path=str(index_path),
+            chunk_ids_path=str(ids_path) if ids_path.exists() else None,
+        )
+    except Exception as exc:
+        print(f"[WARN] Could not load retriever for '{index_name}': {exc}")
+        return None
 
 
 class LexarPipeline:
     """
     End-to-end LEXAR pipeline with evidence-constrained generation.
-    
-    Enforces LEXAR principles at every stage:
-    - Retrieval is mandatory
-    - Evidence metadata is preserved
-    - Generation is hard-masked to evidence
-    - Failures are explicit and transparent
+
+    Pass index_name to select which FAISS index to query.
+    If GEMINI_API_KEY is in the environment, Gemini is used for generation;
+    otherwise flan-t5-base is used with hard attention masking.
     """
 
-    def __init__(self, ipc=None, judgment=None, user=None):
+    def __init__(self, ipc=None, judgment=None, user=None, index_name: str = "lexar_medium"):
         """
         Initialize LEXAR pipeline.
 
         Args:
-            ipc: IPCRetriever instance or None
+            ipc: IPCRetriever instance or None (auto-loaded from index_name if None)
             judgment: JudgmentRetriever instance or None
             user: UserRetriever instance or None
+            index_name: which FAISS index to use (ipc | ipc_crpc | ipc_crpc_iea | lexar_medium)
         """
+        if ipc is None:
+            ipc = _load_ipc_retriever(index_name)
+
         self.retriever = MultiIndexRetriever(
             ipc=ipc,
             judgment=judgment,
-            user=user
+            user=user,
         )
         self.reranker = LegalCrossEncoderReranker()
-        self.generator = LexarGenerator()
+        self.generator = _build_generator()
+        self._index_name = index_name
 
         # Configuration
-        self.retrieval_top_k = 10  # Initial retrieval depth
-        self.reranking_top_k = 3   # Evidence count for generation
-        self.min_rerank_score = 0.0  # Confidence threshold (can be tuned)
+        self.retrieval_top_k = 20   # increased for better recall
+        self.reranking_top_k = 5
+        self.min_rerank_score = 0.0
 
     def answer(
         self,
         query: str,
         has_user_docs: bool = False,
         top_k: int = 10,
+        rerank_k: int = 5,
         return_provenance: bool = False,
         debug_mode: bool = False,
     ) -> Dict:
@@ -107,7 +175,7 @@ class LexarPipeline:
             }
 
         # ===== STAGE 2: RERANKING =====
-        evidence, confidence = self._rerank_and_score(query, retrieved, self.reranking_top_k)
+        evidence, confidence = self._rerank_and_score(query, retrieved, rerank_k or self.reranking_top_k)
 
         if not evidence:
             return {
@@ -159,6 +227,7 @@ class LexarPipeline:
             "confidence": confidence,
             "status": "success",
             "evidence_ids": [c.get("chunk_id") for c in evidence],
+            "evidence": evidence,
         }
 
         if return_provenance:
@@ -216,10 +285,13 @@ class LexarPipeline:
         """
         evidence = self.reranker.rerank(query, retrieved, top_k)
 
-        # Compute confidence as average rerank score of selected evidence
+        # Cross-encoder produces raw logits (can be negative).
+        # Sigmoid-normalize to [0, 1] for display.
         if evidence:
+            import math
             scores = [c.get("rerank_score", 0.0) for c in evidence]
-            confidence = sum(scores) / len(scores) if scores else 0.0
+            avg_logit = sum(scores) / len(scores)
+            confidence = 1.0 / (1.0 + math.exp(-avg_logit))
         else:
             confidence = 0.0
 
