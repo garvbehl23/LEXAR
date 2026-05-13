@@ -25,3 +25,10 @@ wheels/
 # PyPI credentials
 .pypirc
 .idea/
+node_modules/
+web/node_modules/
+.env
+data/
+*.index
+*.json
+__pycache__/
